@@ -1,0 +1,11 @@
+name: DefenceTowers
+version: '${project.version}'
+main: me.isaac.defencetowers.DefenceTowersMain
+api-version: 1.18
+authors: [ IsaacTwinkleToes ]
+commands:
+  defencetowers:
+    description: DefenceTowers Commands
+    usage: /defencetowers
+    permission: defencetowers.admin
+    aliases: [dt]
