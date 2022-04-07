@@ -45,26 +45,26 @@ public class Tower {
     Vector direction;
     Player operator = null;
     int taskID;
-    double critChance = .3, critMultiplier = 2, critAccuracy = .5;
+    double critChance = .3, critMultiplier = 2, critAccuracy = .5, arrowPickupRange = 1;
     boolean color = false;
     int red = 255, green = 0, blue = 255;
     boolean silentTower = false, silentArrows = false;
     ArmorStand stand = null, baseStand = null;
     boolean displaying = false;
     private String name;
-    private boolean hasTicked = false;
+    private int lastTick = 0;
     private ItemStack turret = getHeadFromValue(
             "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvM2MxMWEwZDkwYzM3ZWI2OTVjOGE1MjNkODYwMWFhMWM4NWZhZDA5YTRkMjIzMmQwNGVkMjNhYzkwZTQzMjVjMiJ9fX0=");
     private ItemStack base = new ItemStack(Material.BEDROCK);
     private boolean showDisplay = true, fire = false, bulletGravity = true, canShoot = false;
     private int bulletsPerShot = 1, shotConsumption = 1, pierceLevel = 0, knockback = 0, fireTicks = 20, ammo = 0,
-            maxAmmo = 0;
+            maxAmmo = 0, bounces = 0;
     private double range = 10, damage = 2;
-    private float accuracy = 10f, speed = 1.5f;
-    private long shotDelay = 20, bulletGap = 1, delay = 0;
+    private float accuracy = 10f, speed = 1f;
+    private long shotDelay = 20, bulletGap = 0, delay = 0;
     private double towerOffset = .55;
 
-    public Tower(DefenceTowersMain main, String name, Location location) {
+    public Tower(DefenceTowersMain main, String name, Location location, boolean create) {
         this.main = main;
         this.name = name;
         display = name;
@@ -83,7 +83,7 @@ public class Tower {
             startStand();
         }
 
-        if (file.exists())
+        if (file.exists() || !create)
             return;
 
         defaultEntityTypes();
@@ -187,6 +187,30 @@ public class Tower {
                     Bukkit.getScheduler().cancelTask(taskID);
                 }
 
+                lastTick++;
+
+                if (ammo < maxAmmo) {
+                    for (Entity entity : stand.getNearbyEntities(arrowPickupRange, arrowPickupRange, arrowPickupRange)) {
+                        if (entity instanceof Item) {
+                            Item item = (Item) entity;
+                            if (item.getItemStack().getType() != Material.ARROW) continue;
+
+                            int amount = item.getItemStack().getAmount();
+
+                            if (maxAmmo > 0 && ammo + amount > maxAmmo) {
+                                amount -= maxAmmo - ammo;
+                                setAmmo(maxAmmo);
+                            } else {
+                                setAmmo(ammo + amount);
+                                amount = 0;
+                            }
+
+                            item.getItemStack().setAmount(amount);
+
+                        }
+                    }
+                }
+
                 if (operator == null) {
                     boolean target = true;
                     try {
@@ -280,14 +304,12 @@ public class Tower {
         if (!canShoot)
             return;
         if (ammo < shotConsumption) {
-            if (!silentTower && !hasTicked) {
-                stand.getWorld().playSound(stand.getEyeLocation(), Sound.BLOCK_LEVER_CLICK, 1, 1);
-                hasTicked = true;
+            if (!silentTower && lastTick >= 20) {
+                stand.getWorld().playSound(stand.getEyeLocation(), Sound.BLOCK_LEVER_CLICK, .7f, 1);
+                lastTick = 0;
             }
             return;
         }
-
-        hasTicked = false;
 
         delay = 0;
         setAmmo(ammo - shotConsumption);
@@ -296,10 +318,10 @@ public class Tower {
 
             new BukkitRunnable() {
                 public void run() {
-                    Arrow arrow = stand.getWorld().spawnArrow(stand.getEyeLocation(), direction, speed, accuracy);
+                    Arrow arrow = stand.getWorld().spawnArrow(stand.getEyeLocation(), direction, (float) speed, accuracy);
 
                     arrow.setBounce(false);
-                    arrow.setDamage(damage);
+                    arrow.setDamage(0);
                     arrow.setPickupStatus(PickupStatus.DISALLOWED);
                     arrow.setPierceLevel(pierceLevel);
                     arrow.setKnockbackStrength(knockback);
@@ -312,6 +334,7 @@ public class Tower {
                     if (color)
                         arrow.setColor(Color.fromRGB(red, green, blue));
 
+                    arrow.getPersistentDataContainer().set(main.getKeys().bounces, PersistentDataType.INTEGER, bounces);
                     arrow.getPersistentDataContainer().set(main.getKeys().bullet, PersistentDataType.STRING, name);
 
                     double tempDamage = damage;
@@ -571,14 +594,17 @@ public class Tower {
         bulletGap = yaml.getLong("Bullets.Gap");
         bulletGravity = yaml.getBoolean("Bullets.Gravity");
         damage = yaml.getDouble("Bullets.Damage");
-        speed = yaml.getInt("Bullets.Speed");
+        speed = (float) yaml.getDouble("Bullets.Speed");
         accuracy = yaml.getInt("Bullets.Accuracy");
         pierceLevel = yaml.getInt("Bullets.Piercing");
         knockback = yaml.getInt("Bullets.Knockback");
         fire = yaml.getBoolean("Bullets.Fire.Fire");
         fireTicks = yaml.getInt("Bullets.Fire.Ticks");
-        range = yaml.getDouble("Range");
         maxAmmo = yaml.getInt("Shot.Max Ammo");
+        bounces = yaml.getInt("Bullets.Bounces");
+
+        range = yaml.getDouble("Range.Target");
+        arrowPickupRange = yaml.getDouble("Range.Pickup");
 
         critChance = yaml.getDouble("Critical.Chance");
         critMultiplier = yaml.getDouble("Critical.Multiplier");
@@ -631,8 +657,12 @@ public class Tower {
                 boolean hasParticles = yaml.getBoolean("Potion Effects." + effectType + ".Has Particles");
                 boolean hasIcon = yaml.getBoolean("Potion Effects." + effectType + ".Has Icon");
 
-                potionEffects.add(new PotionEffect(PotionEffectType.getByName(effectType), duration, amplifier, ambient,
-                        hasParticles, hasIcon));
+                try {
+                    potionEffects.add(new PotionEffect(PotionEffectType.getByName(effectType), duration, amplifier, ambient,
+                            hasParticles, hasIcon));
+                } catch(IllegalArgumentException ex) {
+                    main.getLogger().log(Level.WARNING, "Unknown potion effect type: " + effectType);
+                }
 
             }
         } catch (NullPointerException ex) {
@@ -658,6 +688,7 @@ public class Tower {
         yaml.set("Bullets.Knockback", knockback);
         yaml.set("Bullets.Fire.Fire", fire);
         yaml.set("Bullets.Fire.Ticks", fireTicks);
+        yaml.set("Bullets.Bounce", bounces);
 
         yaml.set("Critical.Chance", critChance);
         yaml.set("Critical.Multiplier", critMultiplier);
@@ -667,7 +698,8 @@ public class Tower {
         yaml.set("Shot.Delay", shotDelay);
         yaml.set("Shot.Max Ammo", maxAmmo);
 
-        yaml.set("Range", range);
+        yaml.set("Range.Target", range);
+        yaml.set("Range.Pickup", arrowPickupRange);
 
         yaml.set("Silent.Tower", silentTower);
         yaml.set("Silent.Arrows", silentArrows);
@@ -773,9 +805,11 @@ public class Tower {
         double distance = 0;
 
         for (Entity entity : nearbyEntities) {
-            if (entity instanceof Player)
-                if (blacklistedPlayers.contains(entity.getUniqueId()))
-                    continue;
+
+            if (entity instanceof Player) {
+                if (blacklistedPlayers.contains(entity.getUniqueId())) continue;
+                if (((Player) entity).getGameMode() != GameMode.SURVIVAL) continue;
+            }
             if (whitelist.size() != 0)
                 if (!whitelist.contains(entity.getType()))
                     continue;
@@ -788,20 +822,20 @@ public class Tower {
                     : location.distance(entity.getLocation()) >= location.distance(target.getLocation()) ? target
                     : entity);
 
-            distance = target.getLocation().distance(location);
-
             if (distance > range)
                 throw new Exception("No entities nearby"); // target to far, without this, the turret will shoot out of
             // the range particles in the "corners"
 
             Location targetLocation = target.getLocation();
 
+            distance = targetLocation.distance(location);
+
             if (target instanceof Ageable) {
                 if (!((Ageable) target).isAdult())
                     targetLocation.subtract(0, 1, 0);
             }
 
-            direction = targetLocation.clone().add(0, distance / 10, 0).subtract(stand.getLocation()).toVector();
+            direction = targetLocation.clone().add(0, bulletGravity ? (distance / 8) - (speed / 2) : 0, 0).subtract(stand.getLocation()).toVector();
 
             if (!stand.hasLineOfSight(target))
                 target = null;

@@ -3,6 +3,7 @@ version: '${project.version}'
 main: me.isaac.defencetowers.DefenceTowersMain
 api-version: 1.18
 authors: [ IsaacTwinkleToes ]
+website: https://github.com/NotIsaacTwinkleToes/DefenceTowers
 commands:
   defencetowers:
     description: DefenceTowers Commands

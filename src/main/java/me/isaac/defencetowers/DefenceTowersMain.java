@@ -29,19 +29,28 @@ import me.isaac.defencetowers.events.PlayerLeave;
 public class DefenceTowersMain extends JavaPlugin {
 
     /*
+     * NOTE: New config options have been added to tower files. This means older towers will not work, unless you must add the missing options.
+     *          Generate a new Example Tower.yml and make sure your old towers have the same options.
+     *
      * CHANGES
      *
-     * Players cannot open a turret if the turret does not contain their UUID in its blacklist, unless the player has the 'defencetowers.bypassblacklist' permission
+     * - Players cannot open a tower if the tower does not contain their UUID in
+     *      its blacklist, unless the player has the 'defencetowers.bypassblacklist' permission
+     * - Controllable Towers added.
+     *      Opening a towers inventory will display a saddle (if the player has the permission 'defencetowers.ride')
+     *      that once clicked, will put the player on top and in control of the tower. Punch to shoot
+     * - Clicking on a tower with arrows in your hand will add them to the tower.
+     * - Towers now only shoot at players in survival mode
+     * - Towers aim higher the further their target is (experimental)
+     * - Added bouncy bullets
+     * - Bullet speed was not set correctly
+     * - and other bug fixes I forgot about
      *
      *Permissions:
      *	Added:
-     *		defencetowers.bypassblacklist - if a player is not blacklisted in a turret, but has this permission, they can still open the turrets gui
+     *		defencetowers.bypassblacklist - if a player is not blacklisted in a tower, but has this permission, they can still open the tower gui
      *		defencetowers.ride - Players with this permission will be able to ride and control towers
-     *
-     *Controlable Towers added
-     *
-     *
-     *
+     *      defencetowers.addblockedarrows - Players with this permission will be able to add arrows to any tower via clicking with arrows in hand
      *
      */
 
@@ -115,6 +124,7 @@ public class DefenceTowersMain extends JavaPlugin {
         for (World worlds : getServer().getWorlds()) {
             for (Entity entity : worlds.getEntities()) {
                 if (!entity.getPersistentDataContainer().has(getKeys().bullet, PersistentDataType.STRING)) continue;
+                if (entity.getPersistentDataContainer().get(getKeys().bounces, PersistentDataType.INTEGER) > 0) continue;
 
                 if (entity.getVelocity().length() < .2 || ((Arrow) entity).isOnGround()) entity.remove();
 
@@ -135,7 +145,7 @@ public class DefenceTowersMain extends JavaPlugin {
     private void createExampleTower() {
         if (!Tower.exists("Example Tower")) {
 
-            Tower tower = new Tower(this, "Example Tower", null);
+            Tower tower = new Tower(this, "Example Tower", null, true);
 
             tower.setDisplay("&dExample Tower");
             tower.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 40, 1));
@@ -175,7 +185,7 @@ public class DefenceTowersMain extends JavaPlugin {
                 continue;
             }
 
-            Tower tower = new Tower(this, towerLocationYaml.getString(keys + ".Tower"), Tower.locationString(keys).add(.5, -.4, .5));
+            Tower tower = new Tower(this, towerLocationYaml.getString(keys + ".Tower"), Tower.locationString(keys).add(.5, -.4, .5), false);
 
             tower.setAmmo(towerLocationYaml.getInt(keys + ".Ammo"));
 

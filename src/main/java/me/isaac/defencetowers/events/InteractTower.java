@@ -47,15 +47,31 @@ public class InteractTower implements Listener {
 
         if (!e.getPlayer().hasPermission("defencetowers.bypassblacklist")
                 && !tower.getBlacklistedPlayers().contains(e.getPlayer().getUniqueId())) {
+
+            if (e.getPlayer().hasPermission("defencetowers.addblockedarrows")) {
+                if (e.getPlayer().getInventory().getItemInMainHand().getType().equals(Material.ARROW)) {
+
+                    addArrowsToTurret(e.getPlayer(), tower);
+
+                    return;
+                }
+            }
+
             e.getPlayer().spigot().sendMessage(ChatMessageType.ACTION_BAR,
                     TextComponent.fromLegacyText(ChatColor.DARK_RED + "Tower Locked"));
             return;
         }
 
+        if (e.getPlayer().getInventory().getItemInMainHand().getType().equals(Material.ARROW)) {
+
+            addArrowsToTurret(e.getPlayer(), tower);
+
+            return;
+        }
+
         if (e.getPlayer().isSneaking()) {
             tower.remove(e.getPlayer().getGameMode() == GameMode.SURVIVAL);
-            if (main.getInteractTowerInstance().editingTower.containsKey(e.getPlayer()))
-                main.getInteractTowerInstance().editingTower.remove(e.getPlayer());
+            main.getInteractTowerInstance().editingTower.remove(e.getPlayer());
             tower.displayRange(false);
             return;
         }
@@ -69,6 +85,23 @@ public class InteractTower implements Listener {
                 .fromLegacyText(ChatColor.GOLD + "Shift + Click" + ChatColor.YELLOW + " a tower to pick it up"));
         e.getPlayer().openInventory(towerInv);
 
+    }
+
+    private void addArrowsToTurret(Player player, Tower tower) {
+        int arrowAmount = player.getInventory().getItemInMainHand().getAmount();
+
+        if (tower.getMaxAmmo() > 0 && tower.getAmmo() + arrowAmount > tower.getMaxAmmo()) {
+            arrowAmount -= tower.getMaxAmmo() - tower.getAmmo();
+            tower.setAmmo(tower.getMaxAmmo());
+        } else {
+            tower.setAmmo(tower.getAmmo() + arrowAmount);
+            arrowAmount = 0;
+        }
+
+        if (arrowAmount == 0)
+            player.getInventory().setItemInMainHand(null);
+        else
+            player.getInventory().getItemInMainHand().setAmount(arrowAmount);
     }
 
     @EventHandler
@@ -154,7 +187,7 @@ public class InteractTower implements Listener {
                                 return;
                             int amountOnCursor = e.getWhoClicked().getItemOnCursor().getAmount();
 
-                            if (tower.getAmmo() + amountOnCursor > tower.getMaxAmmo() && tower.getMaxAmmo() > 0) {
+                            if (tower.getMaxAmmo() > 0 && tower.getAmmo() + amountOnCursor > tower.getMaxAmmo()) {
                                 amountOnCursor -= tower.getMaxAmmo() - tower.getAmmo();
                                 tower.setAmmo(tower.getMaxAmmo());
                             } else {

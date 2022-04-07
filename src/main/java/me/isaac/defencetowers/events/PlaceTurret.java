@@ -27,7 +27,7 @@ public class PlaceTurret implements Listener {
 
         if (e.getPlayer().getGameMode() != GameMode.CREATIVE) e.getItemInHand().setAmount(e.getItemInHand().getAmount() - 1);
 
-        Tower tower = new Tower(main, turretName, e.getBlockPlaced().getLocation().add(.5, -1.4, .5));
+        Tower tower = new Tower(main, turretName, e.getBlockPlaced().getLocation().add(.5, -1.4, .5), false);
 
         tower.blacklistPlayer(e.getPlayer());
 

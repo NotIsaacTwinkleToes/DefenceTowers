@@ -24,7 +24,7 @@ public class BulletHitEntityEvent extends Event {
 
         if (damageEvent.getDamage() == 0) damageEvent.setCancelled(true);
 
-        Tower tower = new Tower(main, damageEvent.getDamager().getPersistentDataContainer().get(main.getKeys().bullet, PersistentDataType.STRING), null);
+        Tower tower = new Tower(main, damageEvent.getDamager().getPersistentDataContainer().get(main.getKeys().bullet, PersistentDataType.STRING), null, false);
 
         try {
             ((LivingEntity) damageEvent.getEntity()).setNoDamageTicks(0);

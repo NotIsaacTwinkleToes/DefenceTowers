@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -85,14 +86,19 @@ public class Commands implements TabExecutor {
                     return true;
                 }
 
-                player.getInventory().addItem(new Tower(main, towerName, null).getTurret());
+                player.getInventory().addItem(new Tower(main, towerName, null, false).getTurret());
 
                 break;
             case "list":
 
+                player.sendMessage(DefenceTowersMain.prefix + "DefenceTowers list");
+
                 for (File towerFile : DefenceTowersMain.towerFolder.listFiles()) {
                     player.sendMessage(towerFile.getName().replace(".yml", ""));
                 }
+
+                player.sendMessage(DefenceTowersMain.prefix + ChatColor.GRAY + "NOTE: Newly created tower files also appear here. It is recommended to restart the server before using those towers!");
+
                 break;
             case "reload":
 
@@ -143,7 +149,7 @@ public class Commands implements TabExecutor {
                     return true;
                 }
 
-                Tower tower = new Tower(main, towerName, null);
+                Tower tower = new Tower(main, towerName, null, false);
 
                 tower.setTurret(item);
 
@@ -171,7 +177,7 @@ public class Commands implements TabExecutor {
                     return true;
                 }
 
-                tower = new Tower(main, towerName, null);
+                tower = new Tower(main, towerName, null, false);
 
                 tower.setBase(item);
 
