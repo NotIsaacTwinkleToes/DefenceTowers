@@ -39,8 +39,6 @@ public class Tower {
     File file;
     YamlConfiguration yaml;
 
-    // Add targettypes; CLOSEST, FURTHEST, MOST HEALTH, LEAST HEALTH
-    // Add turrent pitch/yaw limits
     Location location;
     Vector direction;
     Player operator = null;
@@ -63,6 +61,7 @@ public class Tower {
     private float accuracy = 10f, speed = 1f;
     private long shotDelay = 20, bulletGap = 0, delay = 0;
     private double towerOffset = .55;
+    private TargetType targetType = TargetType.CLOSEST;
 
     public Tower(DefenceTowersMain main, String name, Location location, boolean create) {
         this.main = main;
@@ -367,10 +366,29 @@ public class Tower {
 
     public Inventory getInventory() {
 
+        updateItems();
+
+        return inventory;
+
+    }
+
+    public void setTargetType(TargetType type) {
+        targetType = type;
+        updateItems();
+    }
+
+    public TargetType getTargetType() {
+        return targetType;
+    }
+
+    private void updateItems() {
         ItemStack ammunitionItem = main.towerItems.getAmmunition().clone();
         ItemMeta ammunitionMeta = ammunitionItem.getItemMeta();
+        ammunitionMeta.setDisplayName(ChatColor.WHITE + "Ammunition: " + ChatColor.GOLD + StaticUtil.format.format(ammo));
         List<String> lore = ammunitionMeta.getLore();
-        lore.set(0, ChatColor.GRAY + "Ammunition: " + ChatColor.GOLD + StaticUtil.format.format(ammo));
+
+        lore.set(1, org.bukkit.ChatColor.DARK_GRAY + "Target Mode: " + org.bukkit.ChatColor.WHITE + targetType.toString());
+
         ammunitionMeta.setLore(lore);
         ammunitionItem.setItemMeta(ammunitionMeta);
         ammunitionItem.setAmount(ammo < 1 ? 1 : (ammo > 64 ? 64 : ammo));
@@ -389,9 +407,6 @@ public class Tower {
         inventory.setItem(2, blacklistItem);
         inventory.setItem(3, ammunitionItem);
         inventory.setItem(4, main.towerItems.getRide());
-
-        return inventory;
-
     }
 
     public boolean isDisplaying() {
@@ -446,15 +461,7 @@ public class Tower {
         if (maxAmmo > 0 && this.ammo > maxAmmo)
             this.ammo = maxAmmo;
 
-        ItemStack ammunitionItem = main.towerItems.getAmmunition().clone();
-        ItemMeta ammunitionMeta = ammunitionItem.getItemMeta();
-        List<String> lore = ammunitionMeta.getLore();
-        lore.set(0, ChatColor.GRAY + "Ammunition: " + ChatColor.GOLD + StaticUtil.format.format(ammo));
-        ammunitionMeta.setLore(lore);
-        ammunitionItem.setItemMeta(ammunitionMeta);
-        ammunitionItem.setAmount(ammo < 1 ? 1 : (ammo > 64 ? 64 : ammo));
-
-        inventory.setItem(3, ammunitionItem);
+        updateItems();
 
     }
 
@@ -818,9 +825,22 @@ public class Tower {
             if (entity.isDead())
                 continue;
 
-            target = (target == null ? entity
-                    : location.distance(entity.getLocation()) >= location.distance(target.getLocation()) ? target
-                    : entity);
+            if (target == null) target = entity;
+
+            switch(targetType) {
+                case CLOSEST:
+                    target = (location.distance(entity.getLocation()) >= location.distance(target.getLocation()) ? target : entity);
+                    break;
+                case FARTHEST:
+                    target = (location.distance(entity.getLocation()) <= location.distance(target.getLocation()) ? target : entity);
+                    break;
+                case MOST_HEALTH:
+                    target = ((LivingEntity) entity).getHealth() > ((LivingEntity) target).getHealth() ? entity : target;
+                    break;
+                case LEAST_HEALTH:
+                    target = ((LivingEntity) entity).getHealth() < ((LivingEntity) target).getHealth() ? entity : target;
+                    break;
+            }
 
             if (distance > range)
                 throw new Exception("No entities nearby"); // target to far, without this, the turret will shoot out of

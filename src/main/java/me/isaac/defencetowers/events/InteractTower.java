@@ -1,9 +1,11 @@
 package me.isaac.defencetowers.events;
 
 import me.isaac.defencetowers.DefenceTowersMain;
+import me.isaac.defencetowers.TargetType;
 import me.isaac.defencetowers.Tower;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -199,6 +201,28 @@ public class InteractTower implements Listener {
                                 e.getWhoClicked().setItemOnCursor(new ItemStack(Material.AIR));
                             else
                                 e.getWhoClicked().getItemOnCursor().setAmount(amountOnCursor);
+
+                            break;
+                        case PICKUP_HALF:
+
+                            TargetType[] types = TargetType.values();
+
+                            TargetType type = tower.getTargetType();
+
+                            for (int i = 0; i < types.length; i++) {
+
+                                if (type == types[i]) {
+                                    try {
+                                        type = types[i + 1];
+                                    } catch (Exception ex) {
+                                        type = types[0];
+                                    }
+                                    break;
+                                }
+
+                            }
+
+                            tower.setTargetType(type);
 
                             break;
                         default:

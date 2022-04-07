@@ -29,29 +29,10 @@ import me.isaac.defencetowers.events.PlayerLeave;
 public class DefenceTowersMain extends JavaPlugin {
 
     /*
-     * NOTE: New config options have been added to tower files. This means older towers will not work, unless you must add the missing options.
-     *          Generate a new Example Tower.yml and make sure your old towers have the same options.
-     *
-     * CHANGES
-     *
-     * - Players cannot open a tower if the tower does not contain their UUID in
-     *      its blacklist, unless the player has the 'defencetowers.bypassblacklist' permission
-     * - Controllable Towers added.
-     *      Opening a towers inventory will display a saddle (if the player has the permission 'defencetowers.ride')
-     *      that once clicked, will put the player on top and in control of the tower. Punch to shoot
-     * - Clicking on a tower with arrows in your hand will add them to the tower.
-     * - Towers now only shoot at players in survival mode
-     * - Towers aim higher the further their target is (experimental)
-     * - Added bouncy bullets
-     * - Bullet speed was not set correctly
-     * - and other bug fixes I forgot about
-     *
-     *Permissions:
-     *	Added:
-     *		defencetowers.bypassblacklist - if a player is not blacklisted in a tower, but has this permission, they can still open the tower gui
-     *		defencetowers.ride - Players with this permission will be able to ride and control towers
-     *      defencetowers.addblockedarrows - Players with this permission will be able to add arrows to any tower via clicking with arrows in hand
-     *
+                Changes
+
+                Towers now have targeting modes. Right-clicking the ammunition option will change targeting mode.
+
      */
 
     private NamespacedKeys keys;
