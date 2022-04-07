@@ -51,7 +51,8 @@ Removing a tower file requires a server restart for the existing towers to be re
   ### Removing
   - Left Clicking ammunition slot will give a stack of arrows from the tower.
   - Shift + Left Clicking will move a stack of arrows to the players inventory from the tower.
-  - Right Click will give 1 arrow to the player.
+
+Right Clicking the ammunition item will cycle the towers targeting mode.
 
 ## Tower Blacklist
 

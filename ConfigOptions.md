@@ -98,7 +98,7 @@ Whitelist is not required
 
 
 
-This contains the turret part of a tower itemstack. This should not be edited unless you know what you're doing. Use the command /dt turret <turret name> to set this ingame.
+This contains the turret part of a tower item stack. This should not be edited unless you know what you're doing. Use the command /dt turret <turret name> to set this ingame.
   
 If you want to make your own texture for a tower; https://www.minecraftskins.com/skin-editor/
   
@@ -111,7 +111,7 @@ Copy the 'Texture Value'
 replace the last line shown above with your new texture value
   
 ### Base:
-This contains the base part of a tower itemstack. This should not be edited unless you know what you're doing. Use the command /dt base <turret name> to set this ingame.
+This contains the base part of a tower item stack. This should not be edited unless you know what you're doing. Use the command /dt base <turret name> to set this ingame.
 ### Offset: 0.55
 How far the turret item should be from the base item ingame.
 ### Potion Effects:
