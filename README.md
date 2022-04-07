@@ -24,6 +24,8 @@ Now doing /dt list will display your new tower.
 ## Editing a tower
  Editing towers dont require a server restart, instead, you can reload the tower's configuration with the command **/dt reload [tower name]**.
  
+ For more help editing a tower, see https://github.com/NotIsaacTwinkleToes/DefenceTowers/blob/master/ConfigOptions.md
+ 
  **/dt reload** will reload all towers.
  
 ## Removing towers
