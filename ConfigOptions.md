@@ -25,10 +25,12 @@ Spread of arrows. 1 is very accurate, 10 is a good default
 Piercing level the arrow has. AKA how many entities the arrow will go through
 ### Knockback: 0
 Knockback level of an arrow
-### Fire.Fire: false
-If the arrow should be on fire
-### Fire.Ticks: 20
-How long an entity should be set on fire for.
+### Fire
+    Fire: false
+    Ticks: 20
+Fire - If the arrow should be on fire
+
+Ticks - How long an entity should be set on fire for.
 ### Bounce: 0
 How many times an arrow will bounce
 
