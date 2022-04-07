@@ -82,7 +82,34 @@ Whitelist is not required
 
 ## Tower:
 ### Turret:
+      Turret:
+    ==: org.bukkit.inventory.ItemStack
+    v: 2975
+    type: PLAYER_HEAD
+    meta:
+      ==: ItemMeta
+      meta-type: SKULL
+      skull-owner:
+        ==: PlayerProfile
+        uniqueId: 3a9d9d00-0000-005b-ffff-fffffc571d2a
+        properties:
+        - name: textures
+          value: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvM2MxMWEwZDkwYzM3ZWI2OTVjOGE1MjNkODYwMWFhMWM4NWZhZDA5YTRkMjIzMmQwNGVkMjNhYzkwZTQzMjVjMiJ9fX0=
+
+
+
 This contains the turret part of a tower itemstack. This should not be edited unless you know what you're doing. Use the command /dt turret <turret name> to set this ingame.
+  
+If you want to make your own texture for a tower; https://www.minecraftskins.com/skin-editor/
+  
+Download your skin and goto https://mineskin.org
+  
+Select the skin file you want to use and hit generate.
+  
+Copy the 'Texture Value'
+  
+replace the last line shown above with your new texture value
+  
 ### Base:
 This contains the base part of a tower itemstack. This should not be edited unless you know what you're doing. Use the command /dt base <turret name> to set this ingame.
 ### Offset: 0.55
