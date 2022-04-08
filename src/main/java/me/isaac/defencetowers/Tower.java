@@ -175,13 +175,13 @@ public class Tower {
 
         direction = stand.getLocation().getDirection();
 
-        main.towerLocations.put(stand, this);
+        main.addTowerStand(stand, this);
 
         taskID = Bukkit.getScheduler().scheduleSyncRepeatingTask(main, new Runnable() {
             public void run() {
 
                 if (!stand.isValid()) {
-                    main.towerLocations.remove(stand);
+                    main.removeTower(stand);
                     displaying = false;
                     Bukkit.getScheduler().cancelTask(taskID);
                 }
@@ -552,8 +552,7 @@ public class Tower {
         Bukkit.getScheduler().cancelTask(taskID);
         stand.remove();
         baseStand.remove();
-        main.towerLocations.remove(stand, this);
-
+        main.removeTower(stand);
         loadFile();
         startStand();
 
@@ -566,8 +565,7 @@ public class Tower {
     public void remove(boolean drop) {
 
         Bukkit.getScheduler().cancelTask(taskID);
-        main.towerLocations.remove(stand, this);
-
+        main.removeTower(stand);
         if (drop)
             location.getWorld().dropItemNaturally(stand.getEyeLocation(), getTurret());
 
@@ -827,7 +825,7 @@ public class Tower {
 
             if (target == null) target = entity;
 
-            switch(targetType) {
+            switch(targetType) { // Handles different target types
                 case CLOSEST:
                     target = (location.distance(entity.getLocation()) >= location.distance(target.getLocation()) ? target : entity);
                     break;
@@ -842,13 +840,13 @@ public class Tower {
                     break;
             }
 
-            if (distance > range)
-                throw new Exception("No entities nearby"); // target to far, without this, the turret will shoot out of
-            // the range particles in the "corners"
-
             Location targetLocation = target.getLocation();
 
             distance = targetLocation.distance(location);
+
+            if (distance > range)
+                throw new Exception("No entities nearby"); // target to far, without this, the turret will shoot out of
+            // the range particles in the "corners"
 
             if (target instanceof Ageable) {
                 if (!((Ageable) target).isAdult())

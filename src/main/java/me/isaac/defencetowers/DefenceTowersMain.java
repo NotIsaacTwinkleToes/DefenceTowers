@@ -31,7 +31,9 @@ public class DefenceTowersMain extends JavaPlugin {
     /*
                 Changes
 
-                Towers now have targeting modes. Right-clicking the ammunition option will change targeting mode.
+                1.17 supported & tested.
+
+                Fixed distance issues.
 
      */
 
@@ -40,7 +42,7 @@ public class DefenceTowersMain extends JavaPlugin {
     public static final File towerFolder = new File("plugins//DefenceTowers//Towers");
     public static final String prefix = ChatColor.translateAlternateColorCodes('&', "&7[&dDefence Towers&7]&r ");
 
-    public final HashMap<ArmorStand, Tower> towerLocations = new HashMap<>();
+    private final HashMap<ArmorStand, Tower> towerLocations = new HashMap<>();
 
     final File towerLocationsFile = new File("plugins//DefenceTowers//TowerLocations.yml");
     YamlConfiguration towerLocationYaml = YamlConfiguration.loadConfiguration(towerLocationsFile);
@@ -149,7 +151,7 @@ public class DefenceTowersMain extends JavaPlugin {
 
             try {
                 towerLocationYaml.save(towerLocationsFile);
-                towerLocationsFile.createNewFile();
+                if (!towerLocationsFile.createNewFile()) getLogger().log(Level.WARNING, "Tower locations could not be saved!");
             } catch (IOException ignored) {}
         }
     }
@@ -182,9 +184,26 @@ public class DefenceTowersMain extends JavaPlugin {
 
         try {
             towerLocationYaml.save(towerLocationsFile);
-        } catch (IOException ex) {}
+        } catch (IOException ignored) {}
 
         towerLocationsFile.delete();
+    }
+
+    public Tower getTower(ArmorStand armorStand) {
+        if (towerLocations.containsKey(armorStand)) return towerLocations.get(armorStand);
+        throw new IllegalArgumentException("Entity is not a tower");
+    }
+
+    public void addTowerStand(ArmorStand stand, Tower tower) {
+        towerLocations.put(stand, tower);
+    }
+
+    public void removeTower(ArmorStand stand) {
+        towerLocations.remove(stand);
+    }
+
+    public HashMap<ArmorStand, Tower> getTowers() {
+        return towerLocations;
     }
 
     public void updateExistingTowers(String name) {

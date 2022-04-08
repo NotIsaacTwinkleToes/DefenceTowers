@@ -45,7 +45,7 @@ public class InteractTower implements Listener {
             return;
         e.setCancelled(true);
 
-        Tower tower = main.towerLocations.get(e.getRightClicked());
+        Tower tower = main.getTower((ArmorStand) e.getRightClicked());
 
         if (!e.getPlayer().hasPermission("defencetowers.bypassblacklist")
                 && !tower.getBlacklistedPlayers().contains(e.getPlayer().getUniqueId())) {
@@ -120,7 +120,8 @@ public class InteractTower implements Listener {
                 PersistentDataType.STRING))
             return;
 
-        Tower tower = main.towerLocations.get(e.getPlayer().getVehicle());
+//        Tower tower = main.towerLocations.get(e.getPlayer().getVehicle());
+        Tower tower = main.getTower((ArmorStand) e.getPlayer().getVehicle());
 
         tower.shoot(e.getPlayer().getLocation().getDirection());
 
@@ -288,8 +289,8 @@ public class InteractTower implements Listener {
         if (!e.getDismounted().getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING))
             return;
 
-        Tower tower = main.towerLocations.get(e.getDismounted());
-
+//        Tower tower = main.towerLocations.get(e.getDismounted());
+        Tower tower = main.getTower((ArmorStand) e.getDismounted());
         tower.kickOperator();
 
     }
@@ -311,7 +312,7 @@ public class InteractTower implements Listener {
     }
 
     public Tower getInventoriesTower(Inventory inventory) {
-        for (Tower towers : main.towerLocations.values()) {
+        for (Tower towers : main.getTowers().values()) {
             if (towers.getInventory().equals(inventory))
                 return towers;
         }
