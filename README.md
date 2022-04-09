@@ -1,13 +1,11 @@
 # DefenceTowers Setup
 1. Extract 'DefenceTowers.zip' to reveal 'DefenceTowers.jar' and 'Towers' folder.
 2. Drag and drop DefenceTowers.jar into plugins folder.
-
-3. **If** you want the example towers that I created, **Create** a new folder called 'DefenceTowers' and drop the 'Towers' folder provided inside.
-
-4. DONE!
+3. DONE!
 
 Upon plugin load, an 'Example Tower' will be created, if it doesn't exist, that will contain the most up-to-date default configuration options.
 
+If you want some extra example towers, use the command '/dt genExamples'.
 # Using DefenceTowers
 ## Creating a new tower
 
@@ -22,17 +20,15 @@ Upon plugin load, an 'Example Tower' will be created, if it doesn't exist, that 
 
 Now doing /dt list will display your new tower.
 ## Editing a tower
- Editing towers dont require a server restart, instead, you can reload the tower's configuration with the command **/dt reload [tower name]**.
+ Editing towers don't require a server restart, instead, you can reload the tower's configuration with the command **/dt reload [tower name]**.
  
  For more help editing a tower, see https://github.com/NotIsaacTwinkleToes/DefenceTowers/blob/master/ConfigOptions.md
  
  **/dt reload** will reload all towers.
- 
 ## Removing towers
- 
 ### From World
 Players with the correct permissions (defencetowers.bypassblacklist) or are blacklisted by a tower, can Shift + Right Click a tower to pick it up.
-  only players in survival will force a tower to drop items.
+  Only players in survival will force a tower to drop items.
   
 ### Removing Tower File
 Removing a tower file requires a server restart for the existing towers to be removed. Doing so will send warnings to the console 'WARN [Defence Towers] Your Tower Name file does not exist, and could not be loaded!'

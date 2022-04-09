@@ -5,7 +5,6 @@ import me.isaac.defencetowers.TargetType;
 import me.isaac.defencetowers.Tower;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -14,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
@@ -34,7 +34,7 @@ public class InteractTower implements Listener {
         this.main = main;
     }
 
-    // Add clicking on towers with arrows will add ammo
+    // Add clicking on towers with tower's ammunition will add ammo.
     @EventHandler
     public void onClickTower(PlayerInteractAtEntityEvent e) {
 
@@ -51,9 +51,9 @@ public class InteractTower implements Listener {
                 && !tower.getBlacklistedPlayers().contains(e.getPlayer().getUniqueId())) {
 
             if (e.getPlayer().hasPermission("defencetowers.addblockedarrows")) {
-                if (e.getPlayer().getInventory().getItemInMainHand().getType().equals(Material.ARROW)) {
+                if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getAmmunitionItem())) {
 
-                    addArrowsToTurret(e.getPlayer(), tower);
+                    addAmmunitionToTurret(e.getPlayer(), tower);
 
                     return;
                 }
@@ -64,9 +64,9 @@ public class InteractTower implements Listener {
             return;
         }
 
-        if (e.getPlayer().getInventory().getItemInMainHand().getType().equals(Material.ARROW)) {
+        if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getAmmunitionItem())) {
 
-            addArrowsToTurret(e.getPlayer(), tower);
+            addAmmunitionToTurret(e.getPlayer(), tower);
 
             return;
         }
@@ -89,7 +89,7 @@ public class InteractTower implements Listener {
 
     }
 
-    private void addArrowsToTurret(Player player, Tower tower) {
+    private void addAmmunitionToTurret(Player player, Tower tower) {
         int arrowAmount = player.getInventory().getItemInMainHand().getAmount();
 
         if (tower.getMaxAmmo() > 0 && tower.getAmmo() + arrowAmount > tower.getMaxAmmo()) {
@@ -120,10 +120,9 @@ public class InteractTower implements Listener {
                 PersistentDataType.STRING))
             return;
 
-//        Tower tower = main.towerLocations.get(e.getPlayer().getVehicle());
         Tower tower = main.getTower((ArmorStand) e.getPlayer().getVehicle());
 
-        tower.shoot(e.getPlayer().getLocation().getDirection());
+        tower.shoot(tower.getProjectileType(), e.getPlayer().getLocation().getDirection());
 
     }
 
@@ -141,7 +140,7 @@ public class InteractTower implements Listener {
 
         if (e.getClickedInventory().equals(e.getView().getTopInventory())) { // Top inventory clicks
 
-            amount = tower.getAmmo() > 64 ? 64 : tower.getAmmo();
+            amount = Math.min(tower.getAmmo(), 64);
 
             switch (e.getSlot()) {
                 case 1: // Clicking radius toggle
@@ -168,25 +167,25 @@ public class InteractTower implements Listener {
                         case PICKUP_ALL:
                             tower.setAmmo(tower.getAmmo() - amount);
 
-                            ItemStack arrows = new ItemStack(Material.ARROW);
-                            arrows.setAmount(amount);
+                            ItemStack ammunition = tower.getAmmunitionItem();
+                            ammunition.setAmount(amount);
 
-                            e.getWhoClicked().setItemOnCursor(arrows);
+                            e.getWhoClicked().setItemOnCursor(ammunition);
                             break;
                         case MOVE_TO_OTHER_INVENTORY:
 
                             if (e.getView().getBottomInventory().firstEmpty() == -1)
                                 return;
 
-                            arrows = new ItemStack(Material.ARROW);
-                            arrows.setAmount(amount);
+                            ammunition = tower.getAmmunitionItem();
+                            ammunition.setAmount(amount);
 
-                            e.getView().getBottomInventory().addItem(arrows);
+                            e.getView().getBottomInventory().addItem(ammunition);
 
                             tower.setAmmo(tower.getAmmo() - amount);
                             break;
                         case SWAP_WITH_CURSOR:
-                            if (e.getWhoClicked().getItemOnCursor().getType() != Material.ARROW)
+                            if (!e.getWhoClicked().getItemOnCursor().isSimilar(tower.getAmmunitionItem()))
                                 return;
                             int amountOnCursor = e.getWhoClicked().getItemOnCursor().getAmount();
 
@@ -247,33 +246,21 @@ public class InteractTower implements Listener {
 
         } else { // Bottom Inventory clicks
 
-            switch (e.getAction()) {
-                case MOVE_TO_OTHER_INVENTORY:
-                    int clickedAmount = e.getCurrentItem().getAmount(), towerAmount = clickedAmount;
+            if (e.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
 
-                    if (tower.getMaxAmmo() > 0 && tower.getAmmo() + clickedAmount > tower.getMaxAmmo()) {
-                        towerAmount = tower.getMaxAmmo() - tower.getAmmo();
-                        clickedAmount -= towerAmount;
-                    } else clickedAmount = 0;
+                if (!e.getCurrentItem().isSimilar(tower.getAmmunitionItem())) return;
 
-                    e.getCurrentItem().setAmount(clickedAmount);
-                    tower.setAmmo(tower.getAmmo() + towerAmount);
-                    break;
-//                case PICKUP_ALL:
-//                case PICKUP_HALF:
-//                case PLACE_ONE:
-//                case PLACE_ALL:
-//                case DROP_ONE_SLOT:
-//                case DROP_ALL_SLOT:
-//                case DROP_ALL_CURSOR:
-//                case DROP_ONE_CURSOR:
-//                case CLONE_STACK:
-//                case PLACE_SOME:
-//                    e.setCancelled(false);
-//                    break;
-                default:
-                    e.setCancelled(false);
-                    break;
+                int clickedAmount = e.getCurrentItem().getAmount(), towerAmount = clickedAmount;
+
+                if (tower.getMaxAmmo() > 0 && tower.getAmmo() + clickedAmount > tower.getMaxAmmo()) {
+                    towerAmount = tower.getMaxAmmo() - tower.getAmmo();
+                    clickedAmount -= towerAmount;
+                } else clickedAmount = 0;
+
+                e.getCurrentItem().setAmount(clickedAmount);
+                tower.setAmmo(tower.getAmmo() + towerAmount);
+            } else {
+                e.setCancelled(false);
             }
 
         }
