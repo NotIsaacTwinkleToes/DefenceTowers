@@ -20,8 +20,8 @@ public class PlayerLeave implements Listener {
     @EventHandler
     public void onPlayerLeave(PlayerQuitEvent e) {
 
-        if (!main.getInteractTowerInstance().editingTower.containsKey(e.getPlayer())) return;
-        main.getInteractTowerInstance().editingTower.remove(e.getPlayer());
+        if (!main.getInteractTowerInstance().editingTowerBlacklist.containsKey(e.getPlayer())) return;
+        main.getInteractTowerInstance().editingTowerBlacklist.remove(e.getPlayer());
 
     }
 
@@ -29,7 +29,7 @@ public class PlayerLeave implements Listener {
     @EventHandler
     public void onPlayerChatLeave(AsyncPlayerChatEvent e) {
 
-        if (!main.getInteractTowerInstance().editingTower.containsKey(e.getPlayer())) return;
+        if (!main.getInteractTowerInstance().editingTowerBlacklist.containsKey(e.getPlayer())) return;
         e.setCancelled(true);
         if (!e.getMessage().equalsIgnoreCase("cancel")) {
 
@@ -49,16 +49,16 @@ public class PlayerLeave implements Listener {
 
             if (whatArgument == 1) {
 
-                if (!main.getInteractTowerInstance().editingTower.get(e.getPlayer()).getBlacklistedPlayers().contains(player.getUniqueId())) {
+                if (!main.getInteractTowerInstance().editingTowerBlacklist.get(e.getPlayer()).getBlacklistedPlayers().contains(player.getUniqueId())) {
                     e.getPlayer().sendMessage(DefenceTowersMain.prefix + "Player is not part of the towers blacklist!");
                     return;
                 }
 
-                main.getInteractTowerInstance().editingTower.get(e.getPlayer()).getBlacklistedPlayers().remove(player.getUniqueId());
+                main.getInteractTowerInstance().editingTowerBlacklist.get(e.getPlayer()).getBlacklistedPlayers().remove(player.getUniqueId());
                 e.getPlayer().sendMessage(DefenceTowersMain.prefix + player.getName() + " removed from tower blacklist!");
 
             } else {
-                main.getInteractTowerInstance().editingTower.get(e.getPlayer()).getBlacklistedPlayers().add(player.getUniqueId());
+                main.getInteractTowerInstance().editingTowerBlacklist.get(e.getPlayer()).getBlacklistedPlayers().add(player.getUniqueId());
                 e.getPlayer().sendMessage(DefenceTowersMain.prefix + player.getName() + " added to tower blacklist!");
             }
 
@@ -67,7 +67,7 @@ public class PlayerLeave implements Listener {
             return;
         }
 
-        main.getInteractTowerInstance().editingTower.remove(e.getPlayer());
+        main.getInteractTowerInstance().editingTowerBlacklist.remove(e.getPlayer());
         e.getPlayer().sendMessage(DefenceTowersMain.prefix + "No longer setting blacklist");
 
     }

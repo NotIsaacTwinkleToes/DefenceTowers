@@ -1,7 +1,9 @@
 package me.isaac.defencetowers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
@@ -91,6 +93,27 @@ public class StaticUtil {
             return list;
     }
 
+    public static String locationString(Location location) {
+        return location.getWorld().getName() + "," + location.getBlockX() + "," + location.getBlockY() + ","
+                + location.getBlockZ();
+    }
+
+    public static Location locationString(String string) {
+
+        String[] split = string.split(",");
+
+        if (split.length < 4)
+            throw new IllegalArgumentException("Invalid location string!");
+
+        World world = Bukkit.getWorld(split[0]);
+        double x = Double.parseDouble(split[1]);
+        double y = Double.parseDouble(split[2]);
+        double z = Double.parseDouble(split[3]);
+
+        return new Location(world, x, y, z);
+
+    }
+
     public static void checkConfig(String towerName) {
 
         File towerFile = new File(DefenceTowersMain.towerFolder.getPath() + "//" + towerName + ".yml");
@@ -136,7 +159,7 @@ public class StaticUtil {
 
         Tower tower;
 
-        for (Tower towers : DefenceTowersMain.instance.getTowers().values()) {
+        for (Tower towers : DefenceTowersMain.instance.getTowers()) {
             if (towers.towersActiveProjectileList.contains(projectile)) return towers;
         }
         throw new IllegalArgumentException("Projectile was not shot by tower");

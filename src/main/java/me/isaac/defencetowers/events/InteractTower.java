@@ -5,14 +5,15 @@ import me.isaac.defencetowers.TargetType;
 import me.isaac.defencetowers.Tower;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -22,9 +23,13 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.spigotmc.event.entity.EntityDismountEvent;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 
 public class InteractTower implements Listener {
 
@@ -34,18 +39,15 @@ public class InteractTower implements Listener {
         this.main = main;
     }
 
-    // Add clicking on towers with tower's ammunition will add ammo.
     @EventHandler
     public void onClickTower(PlayerInteractAtEntityEvent e) {
-
-        if (!(e.getRightClicked() instanceof ArmorStand))
-            return;
         if (!e.getRightClicked().getPersistentDataContainer().has(main.getKeys().turretStand,
                 PersistentDataType.STRING))
             return;
+        if (e.getHand() != EquipmentSlot.HAND) return;
         e.setCancelled(true);
 
-        Tower tower = main.getTower((ArmorStand) e.getRightClicked());
+        Tower tower = main.getTower(e.getRightClicked());
 
         if (!e.getPlayer().hasPermission("defencetowers.bypassblacklist")
                 && !tower.getBlacklistedPlayers().contains(e.getPlayer().getUniqueId())) {
@@ -73,7 +75,14 @@ public class InteractTower implements Listener {
 
         if (e.getPlayer().isSneaking()) {
             tower.remove(e.getPlayer().getGameMode() == GameMode.SURVIVAL);
-            main.getInteractTowerInstance().editingTower.remove(e.getPlayer());
+
+            for (Player players : editingTowerBlacklist.keySet()) {
+                Tower editTower = editingTowerBlacklist.get(players);
+
+                if (editTower.equals(tower)) editingTowerBlacklist.remove(players);
+
+            }
+
             tower.displayRange(false);
             return;
         }
@@ -87,6 +96,13 @@ public class InteractTower implements Listener {
                 .fromLegacyText(ChatColor.GOLD + "Shift + Click" + ChatColor.YELLOW + " a tower to pick it up"));
         e.getPlayer().openInventory(towerInv);
 
+    }
+
+    @EventHandler
+    public void onHitboxDeath(EntityDeathEvent e) {
+        if (!e.getEntity().getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING)) return;
+        e.getDrops().clear();
+        e.setDroppedExp(0);
     }
 
     private void addAmmunitionToTurret(Player player, Tower tower) {
@@ -114,19 +130,17 @@ public class InteractTower implements Listener {
             return;
         if (e.getPlayer().getVehicle() == null)
             return;
-        if (!(e.getPlayer().getVehicle() instanceof ArmorStand))
-            return;
         if (!e.getPlayer().getVehicle().getPersistentDataContainer().has(main.getKeys().turretStand,
                 PersistentDataType.STRING))
             return;
 
-        Tower tower = main.getTower((ArmorStand) e.getPlayer().getVehicle());
+        Tower tower = main.getTower(e.getPlayer().getVehicle());
 
         tower.shoot(tower.getProjectileType(), e.getPlayer().getLocation().getDirection());
 
     }
 
-    public HashMap<Player, Tower> editingTower = new HashMap<>();
+    public HashMap<Player, Tower> editingTowerBlacklist = new HashMap<>();
 
     @EventHandler
     public void onInventoryInteract(InventoryClickEvent e) {
@@ -134,9 +148,11 @@ public class InteractTower implements Listener {
         Tower tower = getInventoriesTower(e.getView().getTopInventory());
         int amount;
 
-        if (tower == null)
+        if (tower == null || e.getClickedInventory() == null)
             return;
         e.setCancelled(true);
+
+        if (e.getView().getTopInventory().getItem(3) == null) return;
 
         if (e.getClickedInventory().equals(e.getView().getTopInventory())) { // Top inventory clicks
 
@@ -147,12 +163,12 @@ public class InteractTower implements Listener {
                     tower.displayRange(!tower.isDisplaying());
                     break;
                 case 2: // Clicking blacklist
-                    if (editingTower.containsKey(e.getWhoClicked())) {
-                        editingTower.remove(e.getWhoClicked());
+                    if (editingTowerBlacklist.containsKey(e.getWhoClicked())) {
+                        editingTowerBlacklist.remove(e.getWhoClicked());
                         e.getWhoClicked().sendMessage(DefenceTowersMain.prefix + "No longer setting blacklist");
                         return;
                     }
-                    editingTower.put((Player) e.getWhoClicked(), tower);
+                    editingTowerBlacklist.put((Player) e.getWhoClicked(), tower);
                     e.getWhoClicked()
                             .sendMessage(DefenceTowersMain.prefix + "Type a players name to add it to the blacklist");
                     e.getWhoClicked().sendMessage(
@@ -163,6 +179,9 @@ public class InteractTower implements Listener {
 
                     break;
                 case 3: // Clicking ammunition arrow
+
+                    if (tower.getAmmo() == 0) return;
+
                     switch (e.getAction()) {
                         case PICKUP_ALL:
                             tower.setAmmo(tower.getAmmo() - amount);
@@ -271,13 +290,10 @@ public class InteractTower implements Listener {
     public void onDismountTurret(EntityDismountEvent e) {
         if (!(e.getEntity() instanceof Player))
             return;
-        if (!(e.getDismounted() instanceof ArmorStand))
-            return;
         if (!e.getDismounted().getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING))
             return;
 
-//        Tower tower = main.towerLocations.get(e.getDismounted());
-        Tower tower = main.getTower((ArmorStand) e.getDismounted());
+        Tower tower = main.getTower(e.getDismounted());
         tower.kickOperator();
 
     }
@@ -299,7 +315,7 @@ public class InteractTower implements Listener {
     }
 
     public Tower getInventoriesTower(Inventory inventory) {
-        for (Tower towers : main.getTowers().values()) {
+        for (Tower towers : main.getTowers()) {
             if (towers.getInventory().equals(inventory))
                 return towers;
         }

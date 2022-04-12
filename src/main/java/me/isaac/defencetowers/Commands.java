@@ -124,7 +124,7 @@ public class Commands implements TabExecutor {
 
                 if (args.length == 1) {
 
-                    player.sendMessage(DefenceTowersMain.prefix + "Updating all towers..");
+                    player.sendMessage(DefenceTowersMain.prefix + "Reloading all towers..");
 
                     for (File towerFiles : DefenceTowersMain.towerFolder.listFiles()) {
                         main.updateExistingTowers(towerFiles.getName().replace(".yml", ""));

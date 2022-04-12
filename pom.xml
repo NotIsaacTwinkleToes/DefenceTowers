@@ -6,7 +6,7 @@
 
     <groupId>me.isaac</groupId>
     <artifactId>DefenceTowers</artifactId>
-    <version>0.9.2</version>
+    <version>0.9.2.2</version>
     <packaging>jar</packaging>
 
     <name>DefenceTowers</name>

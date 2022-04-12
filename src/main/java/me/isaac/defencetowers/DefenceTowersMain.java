@@ -4,12 +4,8 @@ import me.isaac.defencetowers.events.BulletHitEntity;
 import me.isaac.defencetowers.events.InteractTower;
 import me.isaac.defencetowers.events.PlaceTurret;
 import me.isaac.defencetowers.events.PlayerLeave;
-import org.bukkit.ChatColor;
-import org.bukkit.Color;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
@@ -32,14 +28,11 @@ public class DefenceTowersMain extends JavaPlugin {
 
     /*
                 Changes:
-                Tower Configuration overhaul.
-                Tower configuration now auto-updates, missing options will be set to default values.
-                Towers can have different items as ammunition.
-
-                Different projectile types added. ARROW ITEM SMALL_FIREBALL LARGE_FIREBALL TRIDENT WITHER_SKULL
-                Projectile particles display differently.
-
-                bug fixes.
+                Towers now target smaller mobs correctly.
+                Fixed item projectile types from flashing into snowballs.
+                Towers hitbox's replaced with slimes.
+                Fixed towers dropping incorrect ammunition item.
+                Bug fixes.
 
                 Ideas:
                 Run commands on bullet hit, that also run commands after a delay.
@@ -54,7 +47,9 @@ public class DefenceTowersMain extends JavaPlugin {
     public static final File towerFolder = new File("plugins//DefenceTowers//Towers");
     public static final String prefix = ChatColor.translateAlternateColorCodes('&', "&7[&dDefence Towers&7]&r ");
 
-    private final HashMap<ArmorStand, Tower> towerLocations = new HashMap<>();
+//    private final HashMap<Entity, Tower> towerLocations = new HashMap<>();
+
+    private final List<Tower> allTowers = new ArrayList<>();
 
     final File towerLocationsFile = new File("plugins//DefenceTowers//TowerLocations.yml");
     YamlConfiguration towerLocationYaml = YamlConfiguration.loadConfiguration(towerLocationsFile);
@@ -81,7 +76,6 @@ public class DefenceTowersMain extends JavaPlugin {
     public void onDisable() {
 
         removeBullets();
-
         saveTowers();
 
     }
@@ -154,21 +148,26 @@ public class DefenceTowersMain extends JavaPlugin {
     }
 
     private void saveTowers() {
-        if (towerLocations.size() != 0) {
-            for (ArmorStand stand : towerLocations.keySet()) {
-                towerLocationYaml.set(Tower.locationString(stand.getLocation()) + ".Tower", towerLocations.get(stand).getName());
-                towerLocationYaml.set(Tower.locationString(stand.getLocation()) + ".Ammo", towerLocations.get(stand).getAmmo());
-                towerLocationYaml.set(Tower.locationString(stand.getLocation()) + ".TargetingMode", towerLocations.get(stand).getTargetType().name());
+        if (allTowers.size() != 0) {
+
+            for (Tower tower : allTowers) {
+
+                String towerLocation = StaticUtil.locationString(tower.getBaseStand().getLocation().add(0, .4, 0));
+
+                towerLocationYaml.set(towerLocation + ".Tower", tower.getName());
+                towerLocationYaml.set(towerLocation + ".Ammo", tower.getAmmo());
+                towerLocationYaml.set(towerLocation + ".TargetingMode", tower.getTargetType().name());
                 List<String> playerList = new ArrayList<>();
-                towerLocations.get(stand).getBlacklistedPlayers().forEach(id -> playerList.add(id.toString()));
-                towerLocationYaml.set(Tower.locationString(stand.getLocation()) + ".Blacklist", playerList);
-                stand.remove();
-                towerLocations.get(stand).getBaseStand().remove();
+                tower.getBlacklistedPlayers().forEach(id -> playerList.add(id.toString()));
+                towerLocationYaml.set(towerLocation + ".Blacklist", playerList);
+                tower.getStand().remove();
+                tower.getBaseStand().remove();
+                tower.getHitBoxes().forEach(Entity::remove);
             }
 
             try {
                 towerLocationYaml.save(towerLocationsFile);
-                if (!towerLocationsFile.createNewFile()) getLogger().log(Level.WARNING, "Tower locations could not be saved!");
+                towerLocationsFile.createNewFile();
             } catch (IOException ignored) {}
         }
     }
@@ -185,7 +184,7 @@ public class DefenceTowersMain extends JavaPlugin {
                 continue;
             }
 
-            Tower tower = new Tower(this, towerLocationYaml.getString(keys + ".Tower"), Tower.locationString(keys).add(.5, -.4, .5), false);
+            Tower tower = new Tower(this, towerLocationYaml.getString(keys + ".Tower"), StaticUtil.locationString(keys).add(.5, -.4, .5), false);
 
             tower.setAmmo(towerLocationYaml.getInt(keys + ".Ammo"));
             tower.setTargetType(TargetType.valueOf(towerLocationYaml.getString(keys + ".TargetingMode")));
@@ -207,21 +206,22 @@ public class DefenceTowersMain extends JavaPlugin {
         towerLocationsFile.delete();
     }
 
-    public Tower getTower(ArmorStand armorStand) {
-        if (towerLocations.containsKey(armorStand)) return towerLocations.get(armorStand);
+    public Tower getTower(Entity entity) {
+
+        for (Tower tower : allTowers) {
+            if (tower.getEntities().contains(entity)) {
+                return tower;
+            }
+        }
         throw new IllegalArgumentException("Entity is not a tower");
     }
 
-    public void addTowerStand(ArmorStand stand, Tower tower) {
-        towerLocations.put(stand, tower);
+    public void addTower(Tower tower) {
+        allTowers.add(tower);
     }
 
-    public void removeTower(ArmorStand stand) {
-        towerLocations.remove(stand);
-    }
-
-    public HashMap<ArmorStand, Tower> getTowers() {
-        return towerLocations;
+    public void removeTower(Tower tower) {
+        allTowers.remove(tower);
     }
 
     public void createExampleTowers() {
@@ -312,12 +312,14 @@ public class DefenceTowersMain extends JavaPlugin {
 
     }
 
+    public List<Tower> getTowers() {
+        return allTowers;
+    }
+
     public void updateExistingTowers(String name) {
-        if (towerLocations.size() != 0) {
+        if (allTowers.size() != 0) {
 
-            List<Tower> existingTowers = new ArrayList<>(towerLocations.values());
-
-            for (Tower towers : existingTowers) {
+            for (Tower towers : allTowers) {
                 if (!towers.getName().equals(name)) continue;
 
                 towers.restart();

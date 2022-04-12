@@ -29,26 +29,30 @@ import java.util.logging.Level;
 
 public class Tower {
 
+    private Tower towerInstance;
+
     private String name;
     private final Inventory inventory;
     private final DefenceTowersMain main;
     private File file;
     private YamlConfiguration yaml;
 
-    private Location location;
+    private Location location, turretBarrelLocation;
     private Vector direction;
     private Player operator = null;
     private ArmorStand stand = null, baseStand = null;
+    private List<Slime> hitBoxes = new ArrayList<>();
+    private List<Entity> entities = new ArrayList<>();
 
     private int lastTick = 0;
 
     private String display;
     private ItemStack turret, base, ammunitionItem;
     private Material projectileMaterial;
-    private boolean displaying = false, showDisplay, bulletGravity, canShoot = false, tailToggle,
+    private boolean hitBoxValid, solid, displaying = false, showDisplay, bulletGravity, canShoot = false, tailToggle,
             silentTower, silentArrows, visualFire;
     private int bulletsPerShot, shotConsumption, pierceLevel, knockback, fireTicks, currentAmmo = 0,
-            maxAmmo, bounces, taskID, tailRed, tailGreen, tailBlue;
+            maxAmmo, bounces, tailRed, tailGreen, tailBlue;
     private double towerRange, projectileDamage, critChance, critMultiplier, critAccuracy, arrowPickupRange;
     private float towerAccuracy, projectileSpeed, tailSize;
     private long towerDelay, projectileGap, delay = 0;
@@ -61,7 +65,11 @@ public class Tower {
 
     private TargetType targetType = TargetType.CLOSEST;
 
+    // Add multitargeting options
+    // Make options their own class, this class too long boy.
+
     public Tower(DefenceTowersMain main, String name, Location location, boolean create) {
+        towerInstance = this;
         this.main = main;
         this.name = name;
         display = name;
@@ -96,39 +104,17 @@ public class Tower {
         return stand;
     }
 
-    public static String locationString(Location location) {
-        return location.getWorld().getName() + "," + location.getBlockX() + "," + location.getBlockY() + ","
-                + location.getBlockZ();
-    }
-
-    public static Location locationString(String string) {
-
-        String[] split = string.split(",");
-
-        if (split.length < 4)
-            throw new IllegalArgumentException("Invalid location string!");
-
-        World world = Bukkit.getWorld(split[0]);
-        double x = Double.parseDouble(split[1]);
-        double y = Double.parseDouble(split[2]);
-        double z = Double.parseDouble(split[3]);
-
-        return new Location(world, x, y, z);
-
-    }
-
     public static boolean exists(String name) {
         return new File("plugins//DefenceTowers//Towers//" + name + ".yml").exists();
     }
 
-    public boolean kickOperator() {
+    public void kickOperator() {
         if (operator == null)
-            return false;
+            return;
         operator.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(""));
         operator = null;
         if (stand.getPassengers().contains(operator))
             stand.removePassenger(operator);
-        return true;
     }
 
     public Player getOperator() {
@@ -137,7 +123,7 @@ public class Tower {
 
     public void setOperator(Player player) {
         operator = player;
-        stand.addPassenger(player);
+        hitBoxes.get(1).addPassenger(player);
     }
 
     public boolean getCanShoot() {
@@ -148,10 +134,37 @@ public class Tower {
         this.canShoot = canShoot;
     }
 
+    private void setupHitbox(Location location) {
+
+        Slime bottom = (Slime) location.getWorld().spawnEntity(location.add(0, 1.4, 0), EntityType.SLIME);
+        Slime top = (Slime) location.getWorld().spawnEntity(location.add(0, towerOffset, 0), EntityType.SLIME);
+
+        hitBoxes.add(bottom);
+        hitBoxes.add(top);
+
+        for (Slime hitBox : hitBoxes) {
+            hitBox.setCustomName(ChatColor.translateAlternateColorCodes('&', display));
+            hitBox.setCustomNameVisible(showDisplay);
+            hitBox.setSize(1);
+            hitBox.setAI(false);
+            hitBox.setSilent(true);
+            hitBox.setGravity(false);
+            hitBox.setCollidable(true);
+            hitBox.setInvulnerable(true);
+            hitBox.getPersistentDataContainer().set(main.getKeys().turretStand, PersistentDataType.STRING, name);
+            hitBox.setInvisible(true);
+
+            entities.add(hitBox);
+
+        }
+
+        hitBoxValid = true;
+
+    }
+
     public void startStand() {
 
         baseStand = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
-
         baseStand.setGravity(false);
         baseStand.getEquipment().setHelmet(base);
         baseStand.setMarker(true);
@@ -159,26 +172,36 @@ public class Tower {
 
         stand = (ArmorStand) location.getWorld().spawnEntity(location.clone().add(0, towerOffset, 0),
                 EntityType.ARMOR_STAND);
-
         stand.setGravity(false);
         stand.getEquipment().setHelmet(turret);
-        stand.setCustomName(ChatColor.translateAlternateColorCodes('&', display));
-        stand.setCustomNameVisible(showDisplay);
-        stand.getPersistentDataContainer().set(main.getKeys().turretStand, PersistentDataType.STRING, name);
         stand.setInvulnerable(true);
+        stand.setMarker(true);
         stand.setVisible(false);
 
+        entities.add(stand);
+        entities.add(baseStand);
+
+        setupHitbox(baseStand.getEyeLocation());
+        turretBarrelLocation = hitBoxes.get(1).getEyeLocation();
         direction = stand.getLocation().getDirection();
 
-        main.addTowerStand(stand, this);
+        main.addTower(this);
 
-        taskID = Bukkit.getScheduler().scheduleSyncRepeatingTask(main, new Runnable() {
+        new BukkitRunnable() {
             public void run() {
 
-                if (!stand.isValid()) {
-                    main.removeTower(stand);
+                for (Slime hitBox : hitBoxes) {
+                    if (!hitBox.isValid()) {
+                        hitBoxValid = false;
+                        break;
+                    }
+                }
+
+                if (!stand.isValid() || !baseStand.isValid() || !hitBoxValid) {
                     displaying = false;
-                    Bukkit.getScheduler().cancelTask(taskID);
+                    remove(false);
+                    cancel();
+                    return;
                 }
 
                 lastTick++;
@@ -215,12 +238,14 @@ public class Tower {
                         target = false;
                     }
 
-                    if (canShoot) if (target) shoot(projectileType, direction);
+                    if (canShoot) {
+                        if (target) {
+                            shoot(turretBarrelLocation, projectileType, direction);
+                        }
+                    }
 
                 } else
                     direction = operator.getLocation().getDirection();
-
-//                towersActiveProjectileList.forEach(projectile -> projectile.getWorld().spawnParticle(Particle.REDSTONE, projectile.getLocation(), 1, new DustOptions(Color.fromRGB(tailRed, tailGreen, tailBlue), tailSize)));
 
                 for (int i = 0; i < towersActiveProjectileList.size(); i++) {
 
@@ -231,8 +256,8 @@ public class Tower {
                             towersActiveProjectileList.remove(i);
                             continue;
                         }
-                    } catch (NullPointerException ex) {
-                        towersActiveProjectileList.remove(i);
+                    } catch (Exception ex) {
+                        return;
                     }
 
                     projectile.getWorld().spawnParticle(Particle.REDSTONE, projectile.getLocation(), 1, new DustOptions(Color.fromRGB(tailRed, tailGreen, tailBlue), tailSize));
@@ -250,7 +275,7 @@ public class Tower {
 
                     boolean containsPlayer = false;
 
-                    for (Entity entity : stand.getNearbyEntities(towerRange * 1.5, towerRange * 1.5, towerRange * 1.5)) {
+                    for (Entity entity : nearbyEntitiesExtended) {
                         if (entity instanceof Player) {
                             containsPlayer = true;
                             break;
@@ -262,7 +287,7 @@ public class Tower {
                 }
 
             }
-        }, 0, 1);
+        }.runTaskTimerAsynchronously(main, 10, 1);
 
     }
 
@@ -328,6 +353,10 @@ public class Tower {
     }
 
     public void shoot(ProjectileType type, Vector direction) {
+        shoot(turretBarrelLocation, type, direction);
+    }
+
+    public void shoot(Location location, ProjectileType type, Vector direction) {
 
         if (direction == null) throw new IllegalArgumentException("Direction cannot be null");
 
@@ -352,26 +381,7 @@ public class Tower {
 
                 public void run() {
 
-                    switch (type) {
-                        case ARROW:
-                            projectile = shootArrow(stand.getEyeLocation(), direction);
-                            break;
-                        case ITEM:
-                            projectile = shootItem(stand.getEyeLocation(), direction);
-                            break;
-                        case TRIDENT:
-                            projectile = shootTrident(stand.getEyeLocation(), direction);
-                            break;
-                        case LARGE_FIREBALL:
-                            projectile = shootFireball(stand.getEyeLocation(), direction, false);
-                            break;
-                        case SMALL_FIREBALL:
-                            projectile = shootFireball(stand.getEyeLocation(), direction, true);
-                            break;
-                        case WITHER_SKULL:
-                            projectile = shootWitherSkull(stand.getEyeLocation(), direction);
-                            break;
-                    }
+                    projectile = freeProjectile(projectileType, location, direction);
 
                     towersActiveProjectileList.add(projectile);
 
@@ -380,6 +390,31 @@ public class Tower {
 
         }
 
+    }
+
+    public Projectile freeProjectile(ProjectileType type, Location location, Vector direction) {
+        Projectile projectile = null;
+        switch (type) {
+            case ARROW:
+                projectile = shootArrow(location, direction);
+                break;
+            case ITEM:
+                projectile = shootItem(location, direction);
+                break;
+            case TRIDENT:
+                projectile = shootTrident(location, direction);
+                break;
+            case LARGE_FIREBALL:
+                projectile = shootFireball(location, direction, false);
+                break;
+            case SMALL_FIREBALL:
+                projectile = shootFireball(location, direction, true);
+                break;
+            case WITHER_SKULL:
+                projectile = shootWitherSkull(location, direction);
+                break;
+        }
+        return projectile;
     }
 
     private double criticalMultiplier = 1;
@@ -427,9 +462,12 @@ public class Tower {
         Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
         Vector velocity = arrow.getVelocity();
         arrow.remove();
-        Snowball snowball = (Snowball) location.getWorld().spawnEntity(location, EntityType.SNOWBALL);
-        snowball.setVelocity(velocity);
-        snowball.setItem(new ItemStack(projectileMaterial));
+
+        Snowball snowball = ((RegionAccessor) location.getWorld()).spawn(location, Snowball.class, (t) -> {t.setVelocity(velocity); t.setItem(new ItemStack(projectileMaterial));});
+
+//        Snowball snowball = (Snowball) location.getWorld().spawnEntity(location, EntityType.SNOWBALL);
+//        snowball.setVelocity(velocity);
+//        snowball.setItem(new ItemStack(projectileMaterial));
         updateProjectile(snowball);
         return snowball;
     }
@@ -515,15 +553,18 @@ public class Tower {
 
         ammunitionMeta.setLore(lore);
         ammunitionItem.setItemMeta(ammunitionMeta);
-        ammunitionItem.setAmount(currentAmmo < 1 ? 1 : (currentAmmo > 64 ? 64 : currentAmmo));
+        ammunitionItem.setAmount(currentAmmo < 1 ? 1 : (Math.min(currentAmmo, 64)));
 
         ItemStack blacklistItem = main.towerItems.getBlacklist().clone();
         ItemMeta blacklistMeta = blacklistItem.getItemMeta();
         List<String> blacklistLore = blacklistMeta.getLore();
         boolean color = true;
-        blacklistedPlayers.forEach(id -> {
-            blacklistLore.add((color ? ChatColor.DARK_GRAY : ChatColor.GRAY) + Bukkit.getOfflinePlayer(id).getName());
-        });
+
+        for (UUID ids : blacklistedPlayers) {
+            blacklistLore.add((color ? ChatColor.DARK_GRAY : ChatColor.GRAY) + Bukkit.getOfflinePlayer(ids).getName());
+            color = !color;
+        }
+
         blacklistMeta.setLore(blacklistLore);
         blacklistItem.setItemMeta(blacklistMeta);
 
@@ -673,12 +714,14 @@ public class Tower {
 
     public void restart() {
 
-        Bukkit.getScheduler().cancelTask(taskID);
-        stand.remove();
-        baseStand.remove();
-        main.removeTower(stand);
+        remove(false);
         loadFile();
-        startStand();
+
+        new BukkitRunnable() {
+            public void run() {
+                startStand();
+            }
+        }.runTaskLater(main, 20);
 
     }
 
@@ -687,27 +730,32 @@ public class Tower {
     }
 
     public void remove(boolean drop) {
+        new BukkitRunnable() {
+            public void run() {
+                main.removeTower(towerInstance);
+                if (drop)
+                    location.getWorld().dropItemNaturally(stand.getEyeLocation(), getTurret());
 
-        Bukkit.getScheduler().cancelTask(taskID);
-        main.removeTower(stand);
-        if (drop)
-            location.getWorld().dropItemNaturally(stand.getEyeLocation(), getTurret());
+                ItemStack ammunition = ammunitionItem.clone();
 
-        ItemStack arrows = new ItemStack(Material.ARROW);
+                int amount;
 
-        int amount;
+                while (currentAmmo > 0 && drop) {
+                    amount = Math.min(currentAmmo, 64);
+                    ammunition.setAmount(amount);
+                    currentAmmo -= amount;
+                    location.getWorld().dropItemNaturally(stand.getEyeLocation(), ammunition);
+                }
 
-        while (currentAmmo > 0) {
-            amount = currentAmmo > 64 ? 64 : currentAmmo;
-            arrows.setAmount(amount);
-            currentAmmo -= amount;
-            if (drop)
-                location.getWorld().dropItemNaturally(stand.getEyeLocation(), arrows);
-        }
-
-        stand.remove();
-        baseStand.remove();
-
+                stand.remove();
+                baseStand.remove();
+                hitBoxes.forEach(hitbox -> {
+                    main.removeTower(towerInstance);
+                    hitbox.remove();
+                });
+                hitBoxes.clear();
+            }
+        }.runTaskLater(main, 0);
     }
 
     private void loadFile() {
@@ -772,6 +820,7 @@ public class Tower {
         turret = yaml.getItemStack(ConfigDefaults.TOWER_TURRET.key);
         base = yaml.getItemStack(ConfigDefaults.TOWER_BASE.key);
         towerOffset = yaml.getDouble(ConfigDefaults.TOWER_OFFSET.key);
+        solid = yaml.getBoolean(ConfigDefaults.TOWER_SOLID.key);
 
         towerRange = yaml.getDouble(ConfigDefaults.RANGE_TARGET.key);
         arrowPickupRange = yaml.getDouble(ConfigDefaults.RANGE_PICKUP_AMMUNITION.key);
@@ -817,10 +866,10 @@ public class Tower {
                 }
 
             }
-        } catch (NullPointerException ex) {
+        } catch (NullPointerException ignored) {
         }
 
-        if (towerDelay == 0)
+        if (towerDelay <= 0)
             towerDelay = 1;
 
     }
@@ -884,6 +933,7 @@ public class Tower {
         yaml.set(ConfigDefaults.TOWER_DELAY.key, towerDelay);
         yaml.set(ConfigDefaults.TOWER_MAX_AMMO.key, maxAmmo);
         yaml.set(ConfigDefaults.TOWER_OFFSET.key, towerOffset);
+        yaml.set(ConfigDefaults.TOWER_SOLID.key, solid);
         yaml.set(ConfigDefaults.TOWER_AMMUNITION_ITEM.key, ammunitionItem);
         yaml.set(ConfigDefaults.TOWER_TURRET.key, turret);
         yaml.set(ConfigDefaults.TOWER_BASE.key, base);
@@ -900,7 +950,7 @@ public class Tower {
             yaml.save(file);
             if (!file.exists())
                 file.createNewFile();
-        } catch (IOException ex) {
+        } catch (IOException ignored) {
         }
 
     }
@@ -913,8 +963,16 @@ public class Tower {
         return blacklistedPlayers;
     }
 
+    List<Entity> nearbyEntities = new ArrayList<>(), nearbyEntitiesExtended;
+
     private Vector noRiderOperation() throws Exception {
-        List<Entity> nearbyEntities = stand.getNearbyEntities(towerRange, towerRange, towerRange);
+
+        new BukkitRunnable() {
+            public void run() {
+                nearbyEntities = stand.getNearbyEntities(towerRange, towerRange, towerRange);
+                nearbyEntitiesExtended = stand.getNearbyEntities(towerRange * 1.5, towerRange * 1.5, towerRange * 1.5);
+            }
+        }.runTaskLater(main, 0);
 
         if (nearbyEntities.size() == 0)
             throw new Exception("No entities nearby");
@@ -922,17 +980,17 @@ public class Tower {
         Entity target = null;
         Vector direction = null;
 
-        double distance = 0;
+        double distance;
 
         for (Entity entity : nearbyEntities) {
 
-            if (!stand.hasLineOfSight(entity)) continue;
+            if (!hitBoxes.get(1).hasLineOfSight(entity) || entity.equals(baseStand)) continue;
+            if (entity.getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING)) continue;
 
             if (entity instanceof Player) {
                 if (blacklistedPlayers.contains(entity.getUniqueId())) continue;
                 if (((Player) entity).getGameMode() != GameMode.SURVIVAL) continue;
             }
-
             if (whitelist.size() != 0) {
                 if (!whitelist.contains(entity.getType()))
                     continue;
@@ -942,9 +1000,7 @@ public class Tower {
             }
             if (entity.isDead())
                 continue;
-
             if (target == null) target = entity;
-
             switch(targetType) { // Handles different target types
                 case CLOSEST:
                     target = (location.distance(entity.getLocation()) >= location.distance(target.getLocation()) ? target : entity);
@@ -960,22 +1016,13 @@ public class Tower {
                     break;
             }
 
-            Location targetLocation = target.getLocation();
-
-            if (target instanceof Ageable) {
-                if (!((Ageable) target).isAdult())
-                    targetLocation.subtract(0, 1, 0);
-            }
+            Location targetLocation = target.getLocation().add(0, target.getHeight() / 2, 0);
 
             distance = targetLocation.distance(location);
 
-            if (distance > towerRange)
-                throw new Exception("No entities nearby"); // target to far, without this, the turret will shoot out of
-            // the range particles in the "corners"
+            if (distance > towerRange) continue;
 
-            if (target == null) throw new Exception("No entities nearby");
-
-            direction = targetLocation.clone().add(0, bulletGravity ? (distance / 8) - (projectileSpeed / 2) : 0, 0).subtract(location).toVector();
+            direction = targetLocation.clone().add(0, bulletGravity ? (distance / 8) - (projectileSpeed / 2) : 0, 0).subtract(hitBoxes.get(1).getLocation()).toVector();
 
         }
 
@@ -1089,6 +1136,22 @@ public class Tower {
         ammunitionItem = item;
         save();
         main.updateExistingTowers(name);
+    }
+
+    public List<Slime> getHitBoxes() {
+        return hitBoxes;
+    }
+
+    public Location getLocation() {
+        return location;
+    }
+
+    public boolean getSolid() {
+        return solid;
+    }
+
+    public List<Entity> getEntities() {
+        return entities;
     }
 
 }

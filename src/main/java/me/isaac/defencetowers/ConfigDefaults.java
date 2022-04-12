@@ -43,6 +43,7 @@ public enum ConfigDefaults {
     TOWER_DELAY("Tower.Delay", 20),
     TOWER_MAX_AMMO("Tower.Max Ammo", 0),
     TOWER_OFFSET("Tower.Offset", .55),
+    TOWER_SOLID("Tower.Solid", false),
     TOWER_AMMUNITION_ITEM("Tower.Ammunition Item", new ItemStack(Material.ARROW)),
     TOWER_TURRET("Tower.Turret", StaticUtil.getHeadFromValue(
             "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvM2MxMWEwZDkwYzM3ZWI2OTVjOGE1MjNkODYwMWFhMWM4NWZhZDA5YTRkMjIzMmQwNGVkMjNhYzkwZTQzMjVjMiJ9fX0=")),

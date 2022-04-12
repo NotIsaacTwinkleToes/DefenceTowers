@@ -30,6 +30,27 @@ public class BulletHitEntity implements Listener {
     }
 
     @EventHandler
+    public void onShootSelf(ProjectileHitEvent e) {
+        if (e.getHitEntity() == null) return;
+        if (!e.getHitEntity().getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING)) return;
+        Projectile entity = e.getEntity();
+        if (!entity.getPersistentDataContainer().has(main.getKeys().bullet, PersistentDataType.STRING)) return;
+
+        Tower tower;
+
+        try {
+            tower = StaticUtil.getShooter(entity);
+        } catch (IllegalArgumentException ex) {
+            return;
+        }
+
+        if (tower.getSolid()) return;
+
+        tower.freeProjectile(tower.getProjectileType(), e.getHitEntity().getLocation().add(0, e.getHitEntity().getHeight(), 0), entity.getVelocity());
+        entity.remove();
+    }
+
+    @EventHandler
     public void onBulletBounce(ProjectileHitEvent e) {
         Projectile entity = e.getEntity();
         Tower tower;
