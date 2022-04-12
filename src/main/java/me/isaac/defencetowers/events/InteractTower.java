@@ -53,7 +53,7 @@ public class InteractTower implements Listener {
                 && !tower.getBlacklistedPlayers().contains(e.getPlayer().getUniqueId())) {
 
             if (e.getPlayer().hasPermission("defencetowers.addblockedarrows")) {
-                if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getAmmunitionItem())) {
+                if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getTowerOptions().getAmmunitionItem())) {
 
                     addAmmunitionToTurret(e.getPlayer(), tower);
 
@@ -66,7 +66,7 @@ public class InteractTower implements Listener {
             return;
         }
 
-        if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getAmmunitionItem())) {
+        if (e.getPlayer().getInventory().getItemInMainHand().isSimilar(tower.getTowerOptions().getAmmunitionItem())) {
 
             addAmmunitionToTurret(e.getPlayer(), tower);
 
@@ -108,9 +108,9 @@ public class InteractTower implements Listener {
     private void addAmmunitionToTurret(Player player, Tower tower) {
         int arrowAmount = player.getInventory().getItemInMainHand().getAmount();
 
-        if (tower.getMaxAmmo() > 0 && tower.getAmmo() + arrowAmount > tower.getMaxAmmo()) {
-            arrowAmount -= tower.getMaxAmmo() - tower.getAmmo();
-            tower.setAmmo(tower.getMaxAmmo());
+        if (tower.getTowerOptions().getMaxAmmo() > 0 && tower.getAmmo() + arrowAmount > tower.getTowerOptions().getMaxAmmo()) {
+            arrowAmount -= tower.getTowerOptions().getMaxAmmo() - tower.getAmmo();
+            tower.setAmmo(tower.getTowerOptions().getMaxAmmo());
         } else {
             tower.setAmmo(tower.getAmmo() + arrowAmount);
             arrowAmount = 0;
@@ -136,7 +136,7 @@ public class InteractTower implements Listener {
 
         Tower tower = main.getTower(e.getPlayer().getVehicle());
 
-        tower.shoot(tower.getProjectileType(), e.getPlayer().getLocation().getDirection());
+        tower.shoot(tower.getTowerOptions().getProjectileType(), e.getPlayer().getLocation().getDirection());
 
     }
 
@@ -180,23 +180,22 @@ public class InteractTower implements Listener {
                     break;
                 case 3: // Clicking ammunition arrow
 
-                    if (tower.getAmmo() == 0) return;
-
                     switch (e.getAction()) {
                         case PICKUP_ALL:
+                            if (tower.getAmmo() == 0) return;
                             tower.setAmmo(tower.getAmmo() - amount);
 
-                            ItemStack ammunition = tower.getAmmunitionItem();
+                            ItemStack ammunition = tower.getTowerOptions().getAmmunitionItem();
                             ammunition.setAmount(amount);
 
                             e.getWhoClicked().setItemOnCursor(ammunition);
                             break;
                         case MOVE_TO_OTHER_INVENTORY:
-
+                            if (tower.getAmmo() == 0) return;
                             if (e.getView().getBottomInventory().firstEmpty() == -1)
                                 return;
 
-                            ammunition = tower.getAmmunitionItem();
+                            ammunition = tower.getTowerOptions().getAmmunitionItem();
                             ammunition.setAmount(amount);
 
                             e.getView().getBottomInventory().addItem(ammunition);
@@ -204,13 +203,13 @@ public class InteractTower implements Listener {
                             tower.setAmmo(tower.getAmmo() - amount);
                             break;
                         case SWAP_WITH_CURSOR:
-                            if (!e.getWhoClicked().getItemOnCursor().isSimilar(tower.getAmmunitionItem()))
+                            if (!e.getWhoClicked().getItemOnCursor().isSimilar(tower.getTowerOptions().getAmmunitionItem()))
                                 return;
                             int amountOnCursor = e.getWhoClicked().getItemOnCursor().getAmount();
 
-                            if (tower.getMaxAmmo() > 0 && tower.getAmmo() + amountOnCursor > tower.getMaxAmmo()) {
-                                amountOnCursor -= tower.getMaxAmmo() - tower.getAmmo();
-                                tower.setAmmo(tower.getMaxAmmo());
+                            if (tower.getTowerOptions().getMaxAmmo() > 0 && tower.getAmmo() + amountOnCursor > tower.getTowerOptions().getMaxAmmo()) {
+                                amountOnCursor -= tower.getTowerOptions().getMaxAmmo() - tower.getAmmo();
+                                tower.setAmmo(tower.getTowerOptions().getMaxAmmo());
                             } else {
                                 tower.setAmmo(tower.getAmmo() + amountOnCursor);
                                 amountOnCursor = 0;
@@ -267,12 +266,12 @@ public class InteractTower implements Listener {
 
             if (e.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
 
-                if (!e.getCurrentItem().isSimilar(tower.getAmmunitionItem())) return;
+                if (!e.getCurrentItem().isSimilar(tower.getTowerOptions().getAmmunitionItem())) return;
 
                 int clickedAmount = e.getCurrentItem().getAmount(), towerAmount = clickedAmount;
 
-                if (tower.getMaxAmmo() > 0 && tower.getAmmo() + clickedAmount > tower.getMaxAmmo()) {
-                    towerAmount = tower.getMaxAmmo() - tower.getAmmo();
+                if (tower.getTowerOptions().getMaxAmmo() > 0 && tower.getAmmo() + clickedAmount > tower.getTowerOptions().getMaxAmmo()) {
+                    towerAmount = tower.getTowerOptions().getMaxAmmo() - tower.getAmmo();
                     clickedAmount -= towerAmount;
                 } else clickedAmount = 0;
 

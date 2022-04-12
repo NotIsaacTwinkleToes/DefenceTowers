@@ -55,7 +55,7 @@ public class BulletHitEntityEvent extends Event {
 
         try {
             ((LivingEntity) damageEvent.getEntity()).setNoDamageTicks(0);
-            tower.getPotionEffects().forEach(effect -> ((LivingEntity) damageEvent.getEntity()).addPotionEffect(effect));
+            tower.getTowerOptions().getPotionEffects().forEach(effect -> ((LivingEntity) damageEvent.getEntity()).addPotionEffect(effect));
         } catch (ClassCastException ex) {}
 
         if (damageEvent.getDamage() == 0) damageEvent.setCancelled(true);

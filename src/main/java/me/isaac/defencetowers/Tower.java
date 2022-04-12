@@ -34,65 +34,41 @@ public class Tower {
     private String name;
     private final Inventory inventory;
     private final DefenceTowersMain main;
-    private File file;
-    private YamlConfiguration yaml;
 
     private Location location, turretBarrelLocation;
+    private TowerOptions towerOptions;
     private Vector direction;
     private Player operator = null;
-    private ArmorStand stand = null, baseStand = null;
+    private ArmorStand turretStand = null, baseStand = null, nameStand = null;
     private List<Slime> hitBoxes = new ArrayList<>();
     private List<Entity> entities = new ArrayList<>();
-
     private int lastTick = 0;
-
-    private String display;
-    private ItemStack turret, base, ammunitionItem;
-    private Material projectileMaterial;
-    private boolean hitBoxValid, solid, displaying = false, showDisplay, bulletGravity, canShoot = false, tailToggle,
-            silentTower, silentArrows, visualFire;
-    private int bulletsPerShot, shotConsumption, pierceLevel, knockback, fireTicks, currentAmmo = 0,
-            maxAmmo, bounces, tailRed, tailGreen, tailBlue;
-    private double towerRange, projectileDamage, critChance, critMultiplier, critAccuracy, arrowPickupRange;
-    private float towerAccuracy, projectileSpeed, tailSize;
-    private long towerDelay, projectileGap, delay = 0;
-    private double towerOffset;
-    private ProjectileType projectileType;
-    private final List<EntityType> blacklist = new ArrayList<>();
-    private final List<EntityType> whitelist = new ArrayList<>();
+    private boolean hitBoxValid, displaying = false, canShoot = false;
+    private int currentAmmo = 0;
+    private long delay = 0;
     private final List<UUID> blacklistedPlayers = new ArrayList<>();
-    private final List<PotionEffect> potionEffects = new ArrayList<>();
 
     private TargetType targetType = TargetType.CLOSEST;
 
-    // Add multitargeting options
-    // Make options their own class, this class too long boy.
+    //TODO
+    // Optional health system
+    // Hit Options; BREAK(projectile gets removed), SPLIT(projectile will split into more projectiles), LAUNCH(hit entities will be launched), BOUNCE(projectile will bounce off surfaces)
+    // Multiple hit options are allowed to be selected, maybe with chance?
+    // Split Directions; RANDOM, TARGETTYPE
 
     public Tower(DefenceTowersMain main, String name, Location location, boolean create) {
         towerInstance = this;
         this.main = main;
         this.name = name;
-        display = name;
-        file = new File("plugins//DefenceTowers//Towers//" + name + ".yml");
-        yaml = YamlConfiguration.loadConfiguration(file);
+        towerOptions = new TowerOptions(main, name, create); // TowerOptions handles saving, loading, and editing options for towers.
 
         inventory = Bukkit.createInventory(null, InventoryType.HOPPER,
-                ChatColor.translateAlternateColorCodes('&', display));
-
-        if (file.exists()) {
-            StaticUtil.checkConfig(this.getName());
-            loadFile();
-        }
+                ChatColor.translateAlternateColorCodes('&', towerOptions.getDisplay()));
 
         if (location != null) {
             this.location = location;
             startStand();
         }
-
-        if (file.exists() || !create)
-            return;
-
-        save();
 
     }
 
@@ -100,8 +76,8 @@ public class Tower {
         return baseStand;
     }
 
-    public ArmorStand getStand() {
-        return stand;
+    public ArmorStand getTurretStand() {
+        return turretStand;
     }
 
     public static boolean exists(String name) {
@@ -113,8 +89,8 @@ public class Tower {
             return;
         operator.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(""));
         operator = null;
-        if (stand.getPassengers().contains(operator))
-            stand.removePassenger(operator);
+        if (turretStand.getPassengers().contains(operator))
+            turretStand.removePassenger(operator);
     }
 
     public Player getOperator() {
@@ -136,27 +112,34 @@ public class Tower {
 
     private void setupHitbox(Location location) {
 
-        Slime bottom = (Slime) location.getWorld().spawnEntity(location.add(0, 1.4, 0), EntityType.SLIME);
-        Slime top = (Slime) location.getWorld().spawnEntity(location.add(0, towerOffset, 0), EntityType.SLIME);
+        Slime top = ((RegionAccessor) location.getWorld()).spawn(location.add(0, towerOptions.getTowerOffset(), 0), Slime.class, slime -> {
+            slime.setCustomName(ChatColor.translateAlternateColorCodes('&', towerOptions.getDisplay()));
+            slime.setCustomNameVisible(towerOptions.shouldShowDisplay());
+            slime.setSize(1);
+            slime.setAI(false);
+            slime.setSilent(true);
+            slime.setGravity(false);
+            slime.setCollidable(true);
+            slime.setInvulnerable(true);
+            slime.getPersistentDataContainer().set(main.getKeys().turretStand, PersistentDataType.STRING, name);
+            slime.setInvisible(true);
+        });
 
-        hitBoxes.add(bottom);
+        Slime bottom = ((RegionAccessor) location.getWorld()).spawn(location.add(0, 1.4, 0), Slime.class, slime -> {
+            slime.setSize(1);
+            slime.setAI(false);
+            slime.setSilent(true);
+            slime.setGravity(false);
+            slime.setCollidable(true);
+            slime.setInvulnerable(true);
+            slime.getPersistentDataContainer().set(main.getKeys().turretStand, PersistentDataType.STRING, name);
+            slime.setInvisible(true);
+        });
+
         hitBoxes.add(top);
+        hitBoxes.add(bottom);
 
-        for (Slime hitBox : hitBoxes) {
-            hitBox.setCustomName(ChatColor.translateAlternateColorCodes('&', display));
-            hitBox.setCustomNameVisible(showDisplay);
-            hitBox.setSize(1);
-            hitBox.setAI(false);
-            hitBox.setSilent(true);
-            hitBox.setGravity(false);
-            hitBox.setCollidable(true);
-            hitBox.setInvulnerable(true);
-            hitBox.getPersistentDataContainer().set(main.getKeys().turretStand, PersistentDataType.STRING, name);
-            hitBox.setInvisible(true);
-
-            entities.add(hitBox);
-
-        }
+        entities.addAll(hitBoxes);
 
         hitBoxValid = true;
 
@@ -164,26 +147,41 @@ public class Tower {
 
     public void startStand() {
 
-        baseStand = (ArmorStand) location.getWorld().spawnEntity(location, EntityType.ARMOR_STAND);
-        baseStand.setGravity(false);
-        baseStand.getEquipment().setHelmet(base);
-        baseStand.setMarker(true);
-        baseStand.setInvisible(true);
+        baseStand = ((RegionAccessor) location.getWorld()).spawn(location, ArmorStand.class, baseStand -> {
+            baseStand.setGravity(false);
+            baseStand.getEquipment().setHelmet(towerOptions.getBaseItem());
+            baseStand.setMarker(true);
+            baseStand.setInvisible(true);
+        });
 
-        stand = (ArmorStand) location.getWorld().spawnEntity(location.clone().add(0, towerOffset, 0),
-                EntityType.ARMOR_STAND);
-        stand.setGravity(false);
-        stand.getEquipment().setHelmet(turret);
-        stand.setInvulnerable(true);
-        stand.setMarker(true);
-        stand.setVisible(false);
+        turretStand = ((RegionAccessor) location.getWorld()).spawn(location.clone().add(0, towerOptions.getTowerOffset(), 0), ArmorStand.class, stand -> {
+            stand.setGravity(false);
+            stand.getEquipment().setHelmet(towerOptions.getTurretItem());
+            stand.setInvulnerable(true);
+            stand.setMarker(true);
+            stand.setVisible(false);
+        });
 
-        entities.add(stand);
+        if (towerOptions.shouldShowDisplay()) {
+            nameStand = ((RegionAccessor) location.getWorld()).spawn(location.clone().add(0, towerOptions.getTowerOffset() + towerOptions.getNameOffset(), 0), ArmorStand.class, stand -> {
+                stand.setGravity(false);
+                stand.setMarker(true);
+                stand.setInvisible(true);
+                stand.setInvulnerable(true);
+                stand.setVisible(false);
+                stand.setCustomName(ChatColor.translateAlternateColorCodes('&', towerOptions.getDisplay()));
+                stand.setCustomNameVisible(true);
+            });
+
+            entities.add(nameStand);
+        }
+
+        entities.add(turretStand);
         entities.add(baseStand);
 
         setupHitbox(baseStand.getEyeLocation());
         turretBarrelLocation = hitBoxes.get(1).getEyeLocation();
-        direction = stand.getLocation().getDirection();
+        direction = turretStand.getLocation().getDirection();
 
         main.addTower(this);
 
@@ -197,7 +195,7 @@ public class Tower {
                     }
                 }
 
-                if (!stand.isValid() || !baseStand.isValid() || !hitBoxValid) {
+                if (!turretStand.isValid() || !baseStand.isValid() || !hitBoxValid) {
                     displaying = false;
                     remove(false);
                     cancel();
@@ -206,17 +204,17 @@ public class Tower {
 
                 lastTick++;
 
-                if (currentAmmo < maxAmmo) {
-                    for (Entity entity : stand.getNearbyEntities(arrowPickupRange, arrowPickupRange, arrowPickupRange)) {
+                if (currentAmmo < towerOptions.getMaxAmmo()) {
+                    for (Entity entity : turretStand.getNearbyEntities(towerOptions.getAmmunitionPickupRange(), towerOptions.getAmmunitionPickupRange(), towerOptions.getAmmunitionPickupRange())) {
                         if (entity instanceof Item) {
                             Item item = (Item) entity;
                             if (item.getItemStack().getType() != Material.ARROW) continue;
 
                             int amount = item.getItemStack().getAmount();
 
-                            if (maxAmmo > 0 && currentAmmo + amount > maxAmmo) {
-                                amount -= maxAmmo - currentAmmo;
-                                setAmmo(maxAmmo);
+                            if (towerOptions.getMaxAmmo() > 0 && currentAmmo + amount > towerOptions.getMaxAmmo()) {
+                                amount -= towerOptions.getMaxAmmo() - currentAmmo;
+                                setAmmo(towerOptions.getMaxAmmo());
                             } else {
                                 setAmmo(currentAmmo + amount);
                                 amount = 0;
@@ -228,7 +226,7 @@ public class Tower {
                     }
                 }
 
-                canShoot = delay >= towerDelay;
+                canShoot = delay >= towerOptions.getTowerDelay();
 
                 if (operator == null) {
                     boolean target = true;
@@ -240,7 +238,7 @@ public class Tower {
 
                     if (canShoot) {
                         if (target) {
-                            shoot(turretBarrelLocation, projectileType, direction);
+                            shoot(turretBarrelLocation, towerOptions.getProjectileType(), direction);
                         }
                     }
 
@@ -260,7 +258,7 @@ public class Tower {
                         return;
                     }
 
-                    projectile.getWorld().spawnParticle(Particle.REDSTONE, projectile.getLocation(), 1, new DustOptions(Color.fromRGB(tailRed, tailGreen, tailBlue), tailSize));
+                    projectile.getWorld().spawnParticle(Particle.REDSTONE, projectile.getLocation(), 1, new DustOptions(Color.fromRGB(towerOptions.getTailRed(), towerOptions.getTailGreen(), towerOptions.getTailBlue()), towerOptions.getTailSize()));
 
                 }
 
@@ -287,7 +285,7 @@ public class Tower {
                 }
 
             }
-        }.runTaskTimerAsynchronously(main, 10, 1);
+        }.runTaskTimerAsynchronously(main, 0, 1);
 
     }
 
@@ -295,7 +293,7 @@ public class Tower {
         if (operator == null) return;
         String cooldownBar = "";
 
-        float progress = (float) delay / towerDelay;
+        float progress = (float) delay / towerOptions.getTowerDelay();
 
         int i = 0;
 
@@ -315,35 +313,27 @@ public class Tower {
     }
 
     public void setHeadDirection(Vector direction) {
-        Location clone = stand.getLocation().clone();
+        Location clone = turretStand.getLocation().clone();
         try {
             clone.setDirection(direction);
         } catch (NullPointerException ignored) {}
-        stand.setHeadPose(new EulerAngle(Math.toRadians(clone.getPitch()), Math.toRadians(clone.getYaw()), 0));
+        turretStand.setHeadPose(new EulerAngle(Math.toRadians(clone.getPitch()), Math.toRadians(clone.getYaw()), 0));
 
     }
 
     public void aimingDraw(Vector direction) {
         Location particleLocation = location.clone().add(0, 2, 0);
 
-        double particleOffset = towerAccuracy / 100;
+        double particleOffset = towerOptions.getTowerAccuracy() / 100;
 
         while (true) {
             location.getWorld().spawnParticle(Particle.WAX_OFF, particleLocation, 1, particleOffset, particleOffset,
                     particleOffset, 0);
             particleLocation.add(direction.normalize().multiply(.4));
-            if (particleLocation.distance(location) > towerRange)
+            if (particleLocation.distance(location) > towerOptions.getTowerRange())
                 return;
         }
 
-    }
-
-    public ProjectileType getProjectileType() {
-        return projectileType;
-    }
-
-    public void setProjectileType(ProjectileType projectileType) {
-        this.projectileType = projectileType;
     }
 
     List<Projectile> towersActiveProjectileList = new ArrayList<>();
@@ -362,18 +352,18 @@ public class Tower {
 
         if (!canShoot)
             return;
-        if (currentAmmo < shotConsumption) {
-            if (!silentTower && lastTick >= 20) {
-                stand.getWorld().playSound(stand.getEyeLocation(), Sound.BLOCK_LEVER_CLICK, .7f, 1);
+        if (currentAmmo < towerOptions.getShotConsumption()) {
+            if (!towerOptions.isSilentTower() && lastTick >= 20) {
+                turretStand.getWorld().playSound(turretStand.getEyeLocation(), Sound.BLOCK_LEVER_CLICK, .7f, 1);
                 lastTick = 0;
             }
             return;
         }
 
         delay = 0;
-        setAmmo(currentAmmo - shotConsumption);
+        setAmmo(currentAmmo - towerOptions.getShotConsumption());
 
-        for (int i = 0; i < bulletsPerShot; i++) {
+        for (int i = 0; i < towerOptions.getProjectilesPerShot(); i++) {
 
             new BukkitRunnable() {
 
@@ -381,12 +371,12 @@ public class Tower {
 
                 public void run() {
 
-                    projectile = freeProjectile(projectileType, location, direction);
+                    projectile = freeProjectile(towerOptions.getProjectileType(), location, direction);
 
                     towersActiveProjectileList.add(projectile);
 
                 }
-            }.runTaskLater(main, i * projectileGap);
+            }.runTaskLater(main, i * towerOptions.getProjectileGap());
 
         }
 
@@ -420,68 +410,79 @@ public class Tower {
     private double criticalMultiplier = 1;
 
     public Projectile shootArrow(Location location, Vector direction) {
-        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
+        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         arrow.setRotation(location.getYaw(), location.getPitch());
         updateProjectile(arrow);
         return arrow;
     }
 
     public Projectile shootWitherSkull(Location location, Vector direction) {
-        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
+        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
 
-        WitherSkull skull = (WitherSkull) location.getWorld().spawnEntity(location, EntityType.WITHER_SKULL);
-
-        skull.setCharged(false);
-        skull.setDirection(velocity);
-        skull.setGravity(bulletGravity);
-        skull.setRotation(stand.getLocation().getYaw(), stand.getLocation().getPitch());
+        WitherSkull skull = ((RegionAccessor) location.getWorld()).spawn(location, WitherSkull.class, t -> {
+            t.setCharged(false);
+            t.setDirection(velocity);
+            t.setGravity(towerOptions.projectileHasGravity());
+            t.setRotation(turretStand.getLocation().getYaw(), turretStand.getLocation().getPitch());
+        });
 
         return skull;
 
     }
 
     public Projectile shootTrident(Location location, Vector direction) {
-        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
+        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
 
-        Trident trident = (Trident) location.getWorld().spawnEntity(location, EntityType.TRIDENT);
-        trident.setVelocity(velocity);
-        trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-        trident.setPierceLevel(pierceLevel);
-        trident.setKnockbackStrength(knockback);
-        trident.setRotation(stand.getLocation().getYaw(), stand.getLocation().getPitch());
+        Trident trident = ((RegionAccessor) location.getWorld()).spawn(location, Trident.class, t -> {
+            t.setVelocity(velocity);
+            t.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+            t.setPierceLevel(towerOptions.getProjectilesPerShot());
+            t.setKnockbackStrength(towerOptions.getKnockback());
+            t.setRotation(turretStand.getLocation().getYaw(), turretStand.getLocation().getPitch());
+        });
+
         updateProjectile(trident);
 
         return trident;
     }
 
     public Projectile shootItem(Location location, Vector direction) {
-        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
+        Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
 
-        Snowball snowball = ((RegionAccessor) location.getWorld()).spawn(location, Snowball.class, (t) -> {t.setVelocity(velocity); t.setItem(new ItemStack(projectileMaterial));});
+        Snowball snowball = ((RegionAccessor) location.getWorld()).spawn(location, Snowball.class, (t) -> {
+            t.setVelocity(velocity);
+            t.setItem(new ItemStack(towerOptions.getProjectileMaterial()));
+        });
 
-//        Snowball snowball = (Snowball) location.getWorld().spawnEntity(location, EntityType.SNOWBALL);
-//        snowball.setVelocity(velocity);
-//        snowball.setItem(new ItemStack(projectileMaterial));
         updateProjectile(snowball);
         return snowball;
     }
 
     public Projectile shootFireball(Location location, Vector direction, boolean small) {
-        Arrow arrow = stand.getWorld().spawnArrow(location, direction, (float) projectileSpeed, towerAccuracy);
+        Arrow arrow = turretStand.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
 
         Fireball fireball;
-        if (small) fireball = (Fireball) location.getWorld().spawnEntity(location, EntityType.SMALL_FIREBALL);
-        else fireball = (Fireball) location.getWorld().spawnEntity(location, EntityType.FIREBALL);
-        fireball.setDirection(velocity);
-        fireball.setVelocity(velocity);
+
+        if (small) {
+            fireball = ((RegionAccessor) location.getWorld()).spawn(location, SmallFireball.class, t-> {
+                t.setDirection(velocity);
+                t.setVelocity(velocity);
+            });
+        } else {
+            fireball = ((RegionAccessor) location.getWorld()).spawn(location, Fireball.class, t -> {
+                t.setDirection(velocity);
+                t.setVelocity(velocity);
+            });
+        }
+
         updateProjectile(fireball);
         return fireball;
     }
@@ -490,40 +491,30 @@ public class Tower {
 
         PersistentDataContainer pdc = projectile.getPersistentDataContainer();
 
-        double tempDamage = projectileDamage;
+        double tempDamage = towerOptions.getProjectileDamage();
 
-        if (Math.random() <= getCritChance())
-            criticalMultiplier = (Math.random() >= .5 ? 1 : -1) * (Math.random() * getCritAccuracy() - getCritAccuracy()) + getCritMultiplier();
+        if (Math.random() <= towerOptions.getCritChance());
+            criticalMultiplier = (Math.random() >= .5 ? 1 : -1) * (Math.random() * towerOptions.getCritAccuracy() - towerOptions.getCritAccuracy()) + towerOptions.getCritMultiplier();
 
         pdc.set(main.getKeys().critical, PersistentDataType.DOUBLE, criticalMultiplier);
 
         pdc.set(main.getKeys().bullet, PersistentDataType.STRING, name);
-        pdc.set(main.getKeys().bulletDamage, PersistentDataType.DOUBLE, projectileDamage);
-        pdc.set(main.getKeys().bounces, PersistentDataType.INTEGER, bounces);
-        pdc.set(main.getKeys().fire, PersistentDataType.INTEGER, fireTicks);
-        pdc.set(main.getKeys().tail, PersistentDataType.STRING, tailToggle + " " + tailRed + " " + tailGreen + " " + tailBlue);
+        pdc.set(main.getKeys().bulletDamage, PersistentDataType.DOUBLE, towerOptions.getProjectileDamage());
+        pdc.set(main.getKeys().bounces, PersistentDataType.INTEGER, towerOptions.getBounces());
+        pdc.set(main.getKeys().fire, PersistentDataType.INTEGER, towerOptions.getFireTicks());
+        pdc.set(main.getKeys().tail, PersistentDataType.STRING, towerOptions.isTail() + " " + towerOptions.getTailRed() + " " + towerOptions.getTailGreen() + " " + towerOptions.getTailBlue());
 
         if (projectile instanceof Arrow) {
-            ((Arrow) projectile).setPierceLevel(pierceLevel);
-            ((Arrow) projectile).setKnockbackStrength(knockback);
+            ((Arrow) projectile).setPierceLevel(towerOptions.getPierceLevel());
+            ((Arrow) projectile).setKnockbackStrength(towerOptions.getKnockback());
         } else {
-            pdc.set(main.getKeys().pierce, PersistentDataType.INTEGER, pierceLevel);
-            pdc.set(main.getKeys().knockback, PersistentDataType.INTEGER, knockback);
+            pdc.set(main.getKeys().pierce, PersistentDataType.INTEGER, towerOptions.getPierceLevel());
+            pdc.set(main.getKeys().knockback, PersistentDataType.INTEGER, towerOptions.getKnockback());
         }
 
-        projectile.setVisualFire(visualFire);
-        projectile.setSilent(silentArrows);
+        projectile.setVisualFire(towerOptions.isVisualFire());
+        projectile.setSilent(towerOptions.isSilentProjectiles());
 
-    }
-
-    public void addPotionEffect(PotionEffect potionEffect) {
-        potionEffects.add(potionEffect);
-        save();
-        main.updateExistingTowers(name);
-    }
-
-    public List<PotionEffect> getPotionEffects() {
-        return potionEffects;
     }
 
     public Inventory getInventory() {
@@ -544,7 +535,7 @@ public class Tower {
     }
 
     private void updateItems() {
-        ItemStack ammunitionItem = this.ammunitionItem.clone();
+        ItemStack ammunitionItem = towerOptions.getAmmunitionItem().clone();
         ItemMeta ammunitionMeta = main.towerItems.getAmmunition().getItemMeta();
         ammunitionMeta.setDisplayName(ChatColor.WHITE + "Ammunition: " + ChatColor.GOLD + StaticUtil.format.format(currentAmmo));
         List<String> lore = ammunitionMeta.getLore();
@@ -586,7 +577,7 @@ public class Tower {
             return;
 
         new BukkitRunnable() {
-            final int points = (int) (towerRange * 5);
+            final int points = (int) (towerOptions.getTowerRange() * 5);
 
             public void run() {
 
@@ -597,8 +588,8 @@ public class Tower {
 
                 for (double i = 0; i < points; i += .1) {
 
-                    double x = towerRange * Math.sin(i);
-                    double z = towerRange * Math.cos(i);
+                    double x = towerOptions.getTowerRange() * Math.sin(i);
+                    double z = towerOptions.getTowerRange() * Math.cos(i);
 
                     location.getWorld().spawnParticle(Particle.REDSTONE, particleLocation.clone().add(x, 0, z), 1,
                             new DustOptions(color, 3));
@@ -611,10 +602,6 @@ public class Tower {
 
     }
 
-    public int getMaxAmmo() {
-        return maxAmmo;
-    }
-
     public int getAmmo() {
         return currentAmmo;
     }
@@ -623,99 +610,22 @@ public class Tower {
 
         this.currentAmmo = ammo;
 
-        if (maxAmmo > 0 && this.currentAmmo > maxAmmo)
-            this.currentAmmo = maxAmmo;
+        if (towerOptions.getMaxAmmo() > 0 && this.currentAmmo > towerOptions.getMaxAmmo())
+            this.currentAmmo = towerOptions.getMaxAmmo();
 
         updateItems();
 
-    }
-
-    public void setDisplay(String display) {
-        this.display = display;
-        save();
     }
 
     public String getName() {
         return name;
     }
 
-    public ItemStack getTurret() {
-
-        ItemStack turretItem = turret.clone();
-        ItemMeta itemm = turretItem.getItemMeta();
-
-        itemm.setDisplayName(ChatColor.WHITE + ChatColor.translateAlternateColorCodes('&', display));
-        itemm.getPersistentDataContainer().set(main.getKeys().turretItem, PersistentDataType.STRING, name);
-        List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Damage: " + projectileDamage);
-        lore.add(ChatColor.DARK_GRAY + "Range: " + towerRange);
-        lore.add(ChatColor.GRAY + "Bullets Per Shot: " + bulletsPerShot);
-        lore.add(ChatColor.DARK_GRAY + "Shot Consumption: " + shotConsumption);
-        lore.add(ChatColor.GRAY + "Pierce: " + pierceLevel);
-        lore.add(ChatColor.DARK_GRAY + "Knockback: " + knockback);
-        lore.add(ChatColor.GRAY + "Accuracy: " + towerAccuracy);
-        lore.add(ChatColor.DARK_GRAY + "Bullet Speed: " + projectileSpeed);
-        lore.add(ChatColor.GRAY + "Rate of Fire: " + towerDelay);
-        if (maxAmmo > 0)
-            lore.add(ChatColor.DARK_GRAY + "Max Ammo: " + maxAmmo);
-
-        itemm.setLore(lore);
-
-        turretItem.setItemMeta(itemm);
-
-        return turretItem;
-
-    }
-
-    public void setTurret(ItemStack item) {
-
-        turret = item;
-
-        save();
-
-        main.updateExistingTowers(name);
-
-    }
-
-    public ItemStack getBase() {
-        return base;
-    }
-
-    public void setBase(ItemStack base) {
-        this.base = base;
-
-        save();
-
-        main.updateExistingTowers(name);
-
-    }
-
-    public double getProjectileDamage() {
-        return projectileDamage;
-    }
-
-    public void setProjectileDamage(double projectileDamage) {
-        this.projectileDamage = projectileDamage;
-        save();
-        main.updateExistingTowers(name);
-    }
-
-    public double getCritChance() {
-        return critChance;
-    }
-
-    public double getCritMultiplier() {
-        return critMultiplier;
-    }
-
-    public double getCritAccuracy() {
-        return critAccuracy;
-    }
-
     public void restart() {
 
         remove(false);
-        loadFile();
+
+        towerOptions = new TowerOptions(main, name, false);
 
         new BukkitRunnable() {
             public void run() {
@@ -729,14 +639,42 @@ public class Tower {
         remove(true);
     }
 
+    public ItemStack getTurret() {
+
+        ItemStack turretItem = towerOptions.getTurretItem().clone();
+        ItemMeta itemm = turretItem.getItemMeta();
+
+        itemm.setDisplayName(ChatColor.WHITE + ChatColor.translateAlternateColorCodes('&', towerOptions.getDisplay()));
+        itemm.getPersistentDataContainer().set(main.getKeys().turretItem, PersistentDataType.STRING, name);
+        List<String> lore = new ArrayList<>();
+        lore.add(ChatColor.GRAY + "Damage: " + towerOptions.getProjectileDamage());
+        lore.add(ChatColor.DARK_GRAY + "Range: " + towerOptions.getTowerRange());
+        lore.add(ChatColor.GRAY + "Projectiles Per Shot: " + towerOptions.getProjectilesPerShot());
+        lore.add(ChatColor.DARK_GRAY + "Shot Consumption: " + towerOptions.getShotConsumption());
+        lore.add(ChatColor.GRAY + "Pierce: " + towerOptions.getPierceLevel());
+        lore.add(ChatColor.DARK_GRAY + "Knockback: " + towerOptions.getKnockback());
+        lore.add(ChatColor.GRAY + "Accuracy: " + towerOptions.getTowerAccuracy());
+        lore.add(ChatColor.DARK_GRAY + "Projectile Speed: " + towerOptions.getProjectileSpeed());
+        lore.add(ChatColor.GRAY + "Rate of Fire: " + towerOptions.getTowerDelay());
+        if (towerOptions.getMaxAmmo() > 0)
+            lore.add(ChatColor.DARK_GRAY + "Max Ammo: " + towerOptions.getMaxAmmo());
+
+        itemm.setLore(lore);
+
+        turretItem.setItemMeta(itemm);
+
+        return turretItem;
+
+    }
+
     public void remove(boolean drop) {
         new BukkitRunnable() {
             public void run() {
                 main.removeTower(towerInstance);
                 if (drop)
-                    location.getWorld().dropItemNaturally(stand.getEyeLocation(), getTurret());
+                    location.getWorld().dropItemNaturally(turretStand.getEyeLocation(), getTurret());
 
-                ItemStack ammunition = ammunitionItem.clone();
+                ItemStack ammunition = towerOptions.getAmmunitionItem().clone();
 
                 int amount;
 
@@ -744,215 +682,19 @@ public class Tower {
                     amount = Math.min(currentAmmo, 64);
                     ammunition.setAmount(amount);
                     currentAmmo -= amount;
-                    location.getWorld().dropItemNaturally(stand.getEyeLocation(), ammunition);
+                    location.getWorld().dropItemNaturally(turretStand.getEyeLocation(), ammunition);
                 }
 
-                stand.remove();
+                turretStand.remove();
                 baseStand.remove();
+                nameStand.remove();
+                main.removeTower(towerInstance);
                 hitBoxes.forEach(hitbox -> {
-                    main.removeTower(towerInstance);
                     hitbox.remove();
                 });
                 hitBoxes.clear();
             }
         }.runTaskLater(main, 0);
-    }
-
-    private void loadFile() {
-
-        yaml = YamlConfiguration.loadConfiguration(file);
-
-        name = file.getName().replace(".yml", "");
-
-        showDisplay = yaml.getBoolean(ConfigDefaults.DISPLAY_SHOW.key);
-        display = yaml.getString(ConfigDefaults.DISPLAY_DISPLAY_NAME.key);
-
-        bulletsPerShot = yaml.getInt(ConfigDefaults.PROJECTILE_PER_SHOT.key);
-        projectileGap = yaml.getLong(ConfigDefaults.PROJECTILE_GAP.key);
-        bulletGravity = yaml.getBoolean(ConfigDefaults.PROJECTILE_GRAVITY.key);
-        projectileDamage = yaml.getDouble(ConfigDefaults.PROJECTILE_DAMAGE.key);
-        projectileSpeed = (float) yaml.getDouble(ConfigDefaults.PROJECTILE_SPEED.key);
-        towerAccuracy = yaml.getInt(ConfigDefaults.PROJECTILE_ACCURACY.key);
-        bounces = yaml.getInt(ConfigDefaults.PROJECTILE_BOUNCES.key);
-        visualFire = yaml.getBoolean(ConfigDefaults.PROJECTILE_VISUAL_FIRE.key);
-        fireTicks = yaml.getInt(ConfigDefaults.PROJECTILE_FIRE.key);
-        tailToggle = yaml.getBoolean(ConfigDefaults.PROJECTILE_TAIL.key);
-
-        tailRed = yaml.getInt(ConfigDefaults.PROJECTILE_TAIL_RED.key) - 1;
-        tailGreen = yaml.getInt(ConfigDefaults.PROJECTILE_TAIL_GREEN.key) - 1;
-        tailBlue = yaml.getInt(ConfigDefaults.PROJECTILE_TAIL_BLUE.key) - 1;
-        tailSize = (float) yaml.getDouble(ConfigDefaults.PROJECTILE_TAIL_SIZE.key);
-
-        if (tailRed < 1) tailRed = 1;
-        else if (tailRed > 256) tailRed = 256;
-        if (tailGreen < 1) tailGreen = 1;
-        else if (tailGreen > 256) tailGreen = 256;
-        if (tailBlue < 1) tailBlue = 1;
-        else if (tailBlue > 256) tailBlue = 256;
-        if (tailSize < 0) tailSize = 0;
-        else if (tailSize > 2) tailSize = 2;
-
-        try {
-            projectileMaterial = Material.valueOf(yaml.getString(ConfigDefaults.PROJECTILE_MATERIAL.key));
-        } catch (IllegalArgumentException ex) {
-            Bukkit.getLogger().log(Level.WARNING, "Unknown material type. Setting to COAL_BLOCK");
-            projectileMaterial = Material.COAL_BLOCK;
-        }
-
-        try {
-            projectileType = ProjectileType.valueOf(yaml.getString(ConfigDefaults.PROJECTILE_TYPE.key));
-        } catch (IllegalArgumentException ex) {
-            Bukkit.getLogger().log(Level.WARNING, "Unknown projectile type. Setting to ARROW");
-            projectileType = ProjectileType.ARROW;
-        }
-
-        pierceLevel = yaml.getInt(ConfigDefaults.PROJECTILE_PIERCING.key);
-        knockback = yaml.getInt(ConfigDefaults.PROJECTILE_KNOCKBACK.key);
-
-        critChance = yaml.getDouble(ConfigDefaults.CRITICAL_CHANCE.key);
-        critMultiplier = yaml.getDouble(ConfigDefaults.CRITICAL_MULTIPLIER.key);
-        critAccuracy = yaml.getDouble(ConfigDefaults.CRITICAL_ACCURACY.key);
-
-        maxAmmo = yaml.getInt(ConfigDefaults.TOWER_MAX_AMMO.key);
-        towerDelay = yaml.getInt(ConfigDefaults.TOWER_DELAY.key);
-        shotConsumption = yaml.getInt(ConfigDefaults.TOWER_CONSUMPTION.key);
-        ammunitionItem = yaml.getItemStack(ConfigDefaults.TOWER_AMMUNITION_ITEM.key);
-        turret = yaml.getItemStack(ConfigDefaults.TOWER_TURRET.key);
-        base = yaml.getItemStack(ConfigDefaults.TOWER_BASE.key);
-        towerOffset = yaml.getDouble(ConfigDefaults.TOWER_OFFSET.key);
-        solid = yaml.getBoolean(ConfigDefaults.TOWER_SOLID.key);
-
-        towerRange = yaml.getDouble(ConfigDefaults.RANGE_TARGET.key);
-        arrowPickupRange = yaml.getDouble(ConfigDefaults.RANGE_PICKUP_AMMUNITION.key);
-
-        silentTower = yaml.getBoolean(ConfigDefaults.SILENT_TOWER.key);
-        silentArrows = yaml.getBoolean(ConfigDefaults.SILENT_PROJECTILE.key);
-
-        blacklist.clear();
-        potionEffects.clear();
-
-        for (String type : yaml.getStringList(ConfigDefaults.BLACKLIST.key)) {
-            try {
-                blacklist.add(EntityType.valueOf(type));
-            } catch (IllegalArgumentException ex) {
-                main.getLogger().log(Level.WARNING,
-                        DefenceTowersMain.prefix + type + " is not a valid entity type while loading " + name);
-            }
-        }
-
-        for (String type : yaml.getStringList(ConfigDefaults.WHITELIST.key)) {
-            try {
-                whitelist.add(EntityType.valueOf(type));
-            } catch (IllegalArgumentException ex) {
-                main.getLogger().log(Level.WARNING,
-                        DefenceTowersMain.prefix + type + " is not a valid entity type while loading " + name);
-            }
-        }
-
-        try {
-            for (String effectType : yaml.getConfigurationSection("Potion Effects").getKeys(false)) {
-
-                int amplifier = yaml.getInt("Potion Effects." + effectType + ".Amplifier");
-                int duration = yaml.getInt("Potion Effects." + effectType + ".Duration");
-                boolean ambient = yaml.getBoolean("Potion Effects." + effectType + ".Is Ambient");
-                boolean hasParticles = yaml.getBoolean("Potion Effects." + effectType + ".Has Particles");
-                boolean hasIcon = yaml.getBoolean("Potion Effects." + effectType + ".Has Icon");
-
-                try {
-                    potionEffects.add(new PotionEffect(PotionEffectType.getByName(effectType), duration, amplifier, ambient,
-                            hasParticles, hasIcon));
-                } catch(IllegalArgumentException ex) {
-                    main.getLogger().log(Level.WARNING, "Unknown potion effect type: " + effectType);
-                }
-
-            }
-        } catch (NullPointerException ignored) {
-        }
-
-        if (towerDelay <= 0)
-            towerDelay = 1;
-
-    }
-
-    private void save() {
-
-        yaml.set(ConfigDefaults.DISPLAY_SHOW.key, showDisplay);
-        yaml.set(ConfigDefaults.DISPLAY_DISPLAY_NAME.key, display);
-
-        yaml.set(ConfigDefaults.PROJECTILE_PER_SHOT.key, bulletsPerShot);
-        yaml.set(ConfigDefaults.PROJECTILE_GAP.key, projectileGap);
-        yaml.set(ConfigDefaults.PROJECTILE_GRAVITY.key, bulletGravity);
-        yaml.set(ConfigDefaults.PROJECTILE_DAMAGE.key, projectileDamage);
-        yaml.set(ConfigDefaults.PROJECTILE_SPEED.key, projectileSpeed);
-        yaml.set(ConfigDefaults.PROJECTILE_ACCURACY.key, towerAccuracy);
-        yaml.set(ConfigDefaults.PROJECTILE_VISUAL_FIRE.key, visualFire);
-        yaml.set(ConfigDefaults.PROJECTILE_FIRE.key, fireTicks);
-        yaml.set(ConfigDefaults.PROJECTILE_BOUNCES.key, bounces);
-
-        try {
-            yaml.set(ConfigDefaults.PROJECTILE_TYPE.key, projectileType.toString());
-        } catch (NullPointerException ex) {
-            yaml.set(ConfigDefaults.PROJECTILE_TYPE.key, ProjectileType.ARROW.toString());
-        }
-
-        try {
-            yaml.set(ConfigDefaults.PROJECTILE_MATERIAL.key, projectileMaterial.toString());
-        } catch (NullPointerException ex) {
-            yaml.set(ConfigDefaults.PROJECTILE_MATERIAL.key, Material.COAL_BLOCK.toString());
-        }
-
-        yaml.set(ConfigDefaults.PROJECTILE_TAIL.key, tailToggle);
-        yaml.set(ConfigDefaults.PROJECTILE_TAIL_RED.key, tailRed + 1);
-        yaml.set(ConfigDefaults.PROJECTILE_TAIL_GREEN.key, tailGreen + 1);
-        yaml.set(ConfigDefaults.PROJECTILE_TAIL_BLUE.key, tailBlue + 1);
-        yaml.set(ConfigDefaults.PROJECTILE_TAIL_SIZE.key, tailSize);
-        yaml.set(ConfigDefaults.PROJECTILE_PIERCING.key, pierceLevel);// Arrow spicific
-        yaml.set(ConfigDefaults.PROJECTILE_KNOCKBACK.key, knockback);
-
-        yaml.set(ConfigDefaults.CRITICAL_CHANCE.key, critChance);
-        yaml.set(ConfigDefaults.CRITICAL_MULTIPLIER.key, critMultiplier);
-        yaml.set(ConfigDefaults.CRITICAL_ACCURACY.key, critAccuracy);
-
-        yaml.set(ConfigDefaults.RANGE_TARGET.key, towerRange);
-        yaml.set(ConfigDefaults.RANGE_PICKUP_AMMUNITION.key, arrowPickupRange);
-
-        yaml.set(ConfigDefaults.SILENT_TOWER.key, silentTower);
-        yaml.set(ConfigDefaults.SILENT_PROJECTILE.key, silentArrows);
-
-        for (PotionEffect effects : potionEffects) {
-
-            yaml.set("Potion Effects." + effects.getType().getName() + ".Amplifier", effects.getAmplifier());
-            yaml.set("Potion Effects." + effects.getType().getName() + ".Duration", effects.getDuration());
-            yaml.set("Potion Effects." + effects.getType().getName() + ".Is Ambient", effects.isAmbient());
-            yaml.set("Potion Effects." + effects.getType().getName() + ".Has Particles", effects.hasParticles());
-            yaml.set("Potion Effects." + effects.getType().getName() + ".Has Icon", effects.hasIcon());
-
-        }
-
-        yaml.set(ConfigDefaults.TOWER_CONSUMPTION.key, shotConsumption);
-        yaml.set(ConfigDefaults.TOWER_DELAY.key, towerDelay);
-        yaml.set(ConfigDefaults.TOWER_MAX_AMMO.key, maxAmmo);
-        yaml.set(ConfigDefaults.TOWER_OFFSET.key, towerOffset);
-        yaml.set(ConfigDefaults.TOWER_SOLID.key, solid);
-        yaml.set(ConfigDefaults.TOWER_AMMUNITION_ITEM.key, ammunitionItem);
-        yaml.set(ConfigDefaults.TOWER_TURRET.key, turret);
-        yaml.set(ConfigDefaults.TOWER_BASE.key, base);
-
-        List<String> blacklistNames = new ArrayList<>(), whitelistNames = new ArrayList<>();
-
-        blacklist.forEach(type -> blacklistNames.add(type.toString()));
-        whitelist.forEach(type -> whitelistNames.add(type.toString()));
-
-        yaml.set(ConfigDefaults.BLACKLIST.key, blacklistNames);
-        yaml.set(ConfigDefaults.WHITELIST.key, whitelistNames);
-
-        try {
-            yaml.save(file);
-            if (!file.exists())
-                file.createNewFile();
-        } catch (IOException ignored) {
-        }
-
     }
 
     public void blacklistPlayer(OfflinePlayer player) {
@@ -969,8 +711,8 @@ public class Tower {
 
         new BukkitRunnable() {
             public void run() {
-                nearbyEntities = stand.getNearbyEntities(towerRange, towerRange, towerRange);
-                nearbyEntitiesExtended = stand.getNearbyEntities(towerRange * 1.5, towerRange * 1.5, towerRange * 1.5);
+                nearbyEntities = turretStand.getNearbyEntities(towerOptions.getTowerRange(), towerOptions.getTowerRange(), towerOptions.getTowerRange());
+                nearbyEntitiesExtended = turretStand.getNearbyEntities(towerOptions.getTowerRange() * 1.5, towerOptions.getTowerRange() * 1.5, towerOptions.getTowerRange() * 1.5);
             }
         }.runTaskLater(main, 0);
 
@@ -991,11 +733,11 @@ public class Tower {
                 if (blacklistedPlayers.contains(entity.getUniqueId())) continue;
                 if (((Player) entity).getGameMode() != GameMode.SURVIVAL) continue;
             }
-            if (whitelist.size() != 0) {
-                if (!whitelist.contains(entity.getType()))
+            if (towerOptions.getWhitelist().size() != 0) {
+                if (!towerOptions.getWhitelist().contains(entity.getType()))
                     continue;
             }
-            if (blacklist.contains(entity.getType())) {
+            if (towerOptions.getBlacklist().contains(entity.getType())) {
                 continue;
             }
             if (entity.isDead())
@@ -1020,9 +762,9 @@ public class Tower {
 
             distance = targetLocation.distance(location);
 
-            if (distance > towerRange) continue;
+            if (distance > towerOptions.getTowerRange()) continue;
 
-            direction = targetLocation.clone().add(0, bulletGravity ? (distance / 8) - (projectileSpeed / 2) : 0, 0).subtract(hitBoxes.get(1).getLocation()).toVector();
+            direction = targetLocation.clone().add(0, towerOptions.projectileHasGravity() ? (distance / 8) - (towerOptions.getProjectileSpeed() / 2) : 0, 0).subtract(hitBoxes.get(1).getLocation()).toVector();
 
         }
 
@@ -1030,112 +772,6 @@ public class Tower {
 
         return direction;
 
-    }
-
-    public void setPerShot(int perShot) {
-        this.bulletsPerShot = perShot;
-    }
-
-    public void setProjectileMaterial(Material material) {
-        projectileMaterial = material;
-    }
-
-    public void setGap(int gap) {
-        this.projectileGap = gap;
-    }
-
-    public void setSpeed(float speed) {
-        projectileSpeed = speed;
-    }
-
-    public void setTowerAccuracy(float accuracy) {
-        this.towerAccuracy = accuracy;
-    }
-
-    public void setVisualFire(boolean visualFire) {
-        this.visualFire = visualFire;
-    }
-
-    public void setFireTicks(int ticks) {
-        fireTicks = ticks;
-    }
-
-    public void setTowerDelay(int delay) {
-        this.towerDelay = delay;
-    }
-
-    public void setRange(double range) {
-        this.towerRange = range;
-    }
-
-    public void color(boolean color) {
-        tailToggle = color;
-    }
-
-    public void setColor(Color color) {
-        tailRed = color.getRed();
-        tailGreen = color.getGreen();
-        tailBlue = color.getBlue();
-    }
-
-    public void setBounces(int bounces) {
-        this.bounces = bounces;
-    }
-
-    public void setPierceLevel(int level) {
-        pierceLevel = level;
-    }
-
-    public void setKnockback(int level) {
-        knockback = level;
-    }
-
-    public void whitelist(EntityType type) {
-        if (whitelist.contains(type)) return;
-        whitelist.add(type);
-    }
-
-    public void blacklist(EntityType type) {
-        if (blacklist.contains(type)) return;
-        blacklist.add(type);
-    }
-
-    public void clearBlacklist() {
-        blacklist.clear();
-    }
-
-    public void clearWhitelist() {
-        whitelist.clear();
-    }
-
-    public void setCritChance(double chance) {
-        critChance = chance;
-    }
-
-    public void setCritMultiplier(double multiplier) {
-        critMultiplier = multiplier;
-    }
-
-    public void setCritAccuracy(double accuracy) {
-        critAccuracy = accuracy;
-    }
-
-    public void clearPotionEffects() {
-        potionEffects.clear();
-    }
-
-    public void setColorSize(float size) {
-        tailSize = size;
-    }
-
-    public ItemStack getAmmunitionItem() {
-        return ammunitionItem;
-    }
-
-    public void setAmmunitionItem(ItemStack item) {
-        ammunitionItem = item;
-        save();
-        main.updateExistingTowers(name);
     }
 
     public List<Slime> getHitBoxes() {
@@ -1146,12 +782,16 @@ public class Tower {
         return location;
     }
 
-    public boolean getSolid() {
-        return solid;
-    }
-
     public List<Entity> getEntities() {
         return entities;
+    }
+
+    public ArmorStand getNameStand() {
+        return nameStand;
+    }
+
+    public TowerOptions getTowerOptions() {
+        return towerOptions;
     }
 
 }

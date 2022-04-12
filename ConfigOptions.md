@@ -96,6 +96,9 @@ Maximum ammo this type of tower can hold. 0 is infinite.
 ### Offset: 0.55
 How far the turret item should be from the base item in-game.
 
+### Name Offset: 1.85
+How far the name will be from the turret item.
+
 ### Turret:
       Turret:
     ==: org.bukkit.inventory.ItemStack

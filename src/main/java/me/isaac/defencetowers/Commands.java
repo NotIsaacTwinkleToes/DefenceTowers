@@ -23,8 +23,6 @@ public class Commands implements TabExecutor {
         this.main = main;
     }
 
-    //Add command to edit turret from GUI
-
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
         List<String> list = new ArrayList<>();
 
@@ -59,6 +57,8 @@ public class Commands implements TabExecutor {
 
         return list;
     }
+    
+    //TODO Command system so that towers can be made and edited in game.
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 
@@ -171,7 +171,7 @@ public class Commands implements TabExecutor {
 
                 tower = new Tower(main, towerName, null, false);
 
-                tower.setTurret(item);
+                tower.getTowerOptions().setTurret(item);
 
                 player.sendMessage(DefenceTowersMain.prefix + "Tower turret item set!");
 
@@ -199,7 +199,7 @@ public class Commands implements TabExecutor {
 
                 tower = new Tower(main, towerName, null, false);
 
-                tower.setBase(item);
+                tower.getTowerOptions().setBase(item);
 
                 player.sendMessage(DefenceTowersMain.prefix + "Tower turret item set!");
                 break;
@@ -225,7 +225,7 @@ public class Commands implements TabExecutor {
 
                 tower = new Tower(main, towerName, null, false);
 
-                tower.setAmmunitionItem(item);
+                tower.getTowerOptions().setAmmunitionItem(item);
 
                 player.sendMessage(DefenceTowersMain.prefix + "Tower ammunition item set!");
                 break;

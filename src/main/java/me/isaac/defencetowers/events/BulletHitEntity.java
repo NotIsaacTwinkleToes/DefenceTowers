@@ -44,9 +44,7 @@ public class BulletHitEntity implements Listener {
             return;
         }
 
-        if (tower.getSolid()) return;
-
-        tower.freeProjectile(tower.getProjectileType(), e.getHitEntity().getLocation().add(0, e.getHitEntity().getHeight(), 0), entity.getVelocity());
+        tower.freeProjectile(tower.getTowerOptions().getProjectileType(), e.getHitEntity().getLocation().add(0, e.getHitEntity().getHeight(), 0), entity.getVelocity());
         entity.remove();
     }
 
@@ -91,7 +89,7 @@ public class BulletHitEntity implements Listener {
 
         Projectile projectile = null;
 
-        switch (tower.getProjectileType()) {
+        switch (tower.getTowerOptions().getProjectileType()) {
             case ARROW:
                 projectile = tower.shootArrow(entity.getLocation(), velocity);
                 break;
