@@ -6,7 +6,7 @@ public class NamespacedKeys {
 
     public final NamespacedKey turretItem, turretStand, bullet,
             bulletDamage, bounces, fire, tail, critical, pierce,
-            knockback;
+            knockback, splits;
 
     public NamespacedKeys(DefenceTowersMain main) {
         // Turret in world data
@@ -17,6 +17,7 @@ public class NamespacedKeys {
         // Bullet data
         bulletDamage = new NamespacedKey(main, "damage");
         bounces = new NamespacedKey(main, "bounces");
+        splits = new NamespacedKey(main, "splits");
         fire = new NamespacedKey(main, "fire_ticks");
         tail = new NamespacedKey(main, "tail_particles");
         critical = new NamespacedKey(main, "critical");

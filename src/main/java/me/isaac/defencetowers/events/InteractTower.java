@@ -1,11 +1,10 @@
 package me.isaac.defencetowers.events;
 
 import me.isaac.defencetowers.DefenceTowersMain;
-import me.isaac.defencetowers.TargetType;
-import me.isaac.defencetowers.Tower;
+import me.isaac.defencetowers.tower.TargetType;
+import me.isaac.defencetowers.tower.Tower;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -23,13 +22,9 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.spigotmc.event.entity.EntityDismountEvent;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
 
 public class InteractTower implements Listener {
 
@@ -136,7 +131,7 @@ public class InteractTower implements Listener {
 
         Tower tower = main.getTower(e.getPlayer().getVehicle());
 
-        tower.shoot(tower.getTowerOptions().getProjectileType(), e.getPlayer().getLocation().getDirection());
+        tower.shoot(tower.getTurretBarrelLocation(), tower.getTowerOptions().getProjectileType(), e.getPlayer().getLocation().getDirection());
 
     }
 
@@ -292,7 +287,14 @@ public class InteractTower implements Listener {
         if (!e.getDismounted().getPersistentDataContainer().has(main.getKeys().turretStand, PersistentDataType.STRING))
             return;
 
-        Tower tower = main.getTower(e.getDismounted());
+        Tower tower = null;
+
+        try {
+            tower = main.getTower(e.getDismounted());
+        } catch (IllegalArgumentException ignored) {}
+
+        if (tower == null) return;
+
         tower.kickOperator();
 
     }

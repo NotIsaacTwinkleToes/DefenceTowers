@@ -1,8 +1,10 @@
-package me.isaac.defencetowers;
+package me.isaac.defencetowers.tower;
 
 public enum TargetType {
     CLOSEST("Closest"),
     FARTHEST("Farthest"),
+    STRONGEST("Strongest"),
+    WEAKEST("Weakest"),
     MOST_HEALTH("Most Health"),
     LEAST_HEALTH("Least Health");
 

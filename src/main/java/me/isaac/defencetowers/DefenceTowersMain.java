@@ -1,9 +1,10 @@
 package me.isaac.defencetowers;
 
-import me.isaac.defencetowers.events.BulletHitEntity;
+import me.isaac.defencetowers.events.ProjectileHitEvents;
 import me.isaac.defencetowers.events.InteractTower;
-import me.isaac.defencetowers.events.PlaceTurret;
+import me.isaac.defencetowers.events.PlaceTower;
 import me.isaac.defencetowers.events.PlayerLeave;
+import me.isaac.defencetowers.tower.*;
 import org.bukkit.*;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
@@ -26,6 +27,20 @@ import java.util.logging.Level;
 public class DefenceTowersMain extends JavaPlugin {
 
     /*
+    Added 2 more target types, STRONGEST, WEAKEST
+        STRONGEST will attack the entity that does the most damage,
+        WEAKEST will attack the entity that does the least damage.
+
+    Added new tower config options, Splits, Split amount, Bounce Boost, Hit Types.
+
+    Added HitTypes - These will affect what happens when a projectile hits something.
+        BREAK - projectiles will be removed.
+        SPLIT - projectiles will split into multiple projectiles before being removed.
+       BOUNCE - projectiles will bounce multiple times before being removed.
+
+    Added Potato Tower example
+
+    Fixed placing towers inside other towers
      */
 
     private NamespacedKeys keys;
@@ -61,7 +76,7 @@ public class DefenceTowersMain extends JavaPlugin {
 
     public void onDisable() {
 
-        removeBullets();
+        removeProjectiles();
         saveTowers();
 
     }
@@ -82,8 +97,8 @@ public class DefenceTowersMain extends JavaPlugin {
 
         interactTower = new InteractTower(this);
 
-        pm.registerEvents(new PlaceTurret(this), this);
-        pm.registerEvents(new BulletHitEntity(this), this);
+        pm.registerEvents(new PlaceTower(this), this);
+        pm.registerEvents(new ProjectileHitEvents(this), this);
         pm.registerEvents(interactTower, this);
         pm.registerEvents(new PlayerLeave(this), this);
 
@@ -97,14 +112,11 @@ public class DefenceTowersMain extends JavaPlugin {
         return keys;
     }
 
-    private void removeBullets() {
+    private void removeProjectiles() {
         for (World worlds : getServer().getWorlds()) {
             for (Entity entity : worlds.getEntities()) {
                 if (!entity.getPersistentDataContainer().has(getKeys().bullet, PersistentDataType.STRING)) continue;
-                if (entity.getPersistentDataContainer().get(getKeys().bounces, PersistentDataType.INTEGER) > 0) continue;
-
-                if (entity.getVelocity().length() < .2 || entity.isOnGround()) entity.remove();
-
+                if ((entity.getVelocity().length() < .2 && !entity.hasGravity()) || entity.isOnGround()) entity.remove();
             }
         }
     }
@@ -113,7 +125,7 @@ public class DefenceTowersMain extends JavaPlugin {
 
         new BukkitRunnable() {
             public void run() {
-                removeBullets();
+                removeProjectiles();
             }
         }.runTaskTimer(this, 0, 5);
 
@@ -217,7 +229,7 @@ public class DefenceTowersMain extends JavaPlugin {
         Tower flameTower = new Tower(this, "Flamethrower Tower", null, false); // Gets newly created tower
         TowerOptions flameTowerOptions = flameTower.getTowerOptions();
         flameTowerOptions.setDisplay("&4Flamethrower Tower");
-        flameTowerOptions.setPerShot(5);
+        flameTowerOptions.setProjectilesPerShot(5);
         flameTowerOptions.setGap(1);
         flameTowerOptions.setProjectileDamage(.5d);
         flameTowerOptions.setSpeed(1);
@@ -241,8 +253,9 @@ public class DefenceTowersMain extends JavaPlugin {
         Tower healingTower = new Tower(this, "Healing Machinegun Tower", null, false);
         TowerOptions healingTowerOptions = healingTower.getTowerOptions();
         healingTowerOptions.setDisplay("&4Healing Machinegun Tower");
-        healingTowerOptions.setPerShot(3);
+        healingTowerOptions.setProjectilesPerShot(2);
         healingTowerOptions.setGap(1);
+        healingTowerOptions.setTowerDelay(10);
         healingTowerOptions.setProjectileDamage(0d);
         healingTowerOptions.setSpeed(.5f);
         healingTowerOptions.setTowerAccuracy(15f);
@@ -253,6 +266,11 @@ public class DefenceTowersMain extends JavaPlugin {
         healingTowerOptions.setTowerDelay(4);
         healingTowerOptions.setRange(16);
         healingTowerOptions.setColor(Color.RED);
+        healingTowerOptions.addHitType(HitType.SPLIT, 1);
+        healingTowerOptions.addHitType(HitType.BOUNCE, 2);
+        healingTowerOptions.addHitType(HitType.BREAK, .2);
+        healingTowerOptions.setSplits(2);
+        healingTowerOptions.setSplitAmount(1);
         healingTowerOptions.color(true);
         healingTowerOptions.whitelist(EntityType.PLAYER);
         healingTowerOptions.setTurret(StaticUtil.getHeadFromValue("ewogICJ0aW1lc3RhbXAiIDogMTY0ODk2MzMyOTgzNCwKICAicHJvZmlsZUlkIiA6ICIwZDYyOGNhZTBlOTM0MTZkYjQ1OWM3Y2FhOGNiZDU1MCIsCiAgInByb2ZpbGVOYW1lIiA6ICJEVmFfRmFuQm95IiwKICAic2lnbmF0dXJlUmVxdWlyZWQiIDogdHJ1ZSwKICAidGV4dHVyZXMiIDogewogICAgIlNLSU4iIDogewogICAgICAidXJsIiA6ICJodHRwOi8vdGV4dHVyZXMubWluZWNyYWZ0Lm5ldC90ZXh0dXJlLzY0OWU5NjFkZDY1MWMxZTllNWFhMzExNDg5NjcwMGU3MmVkZGM2ZTkxZGRlNTBjMzg0MzhlMDVjYTdmNmZlMSIKICAgIH0KICB9Cn0="));
@@ -264,7 +282,7 @@ public class DefenceTowersMain extends JavaPlugin {
         Tower shotgunTower = new Tower(this, "Shotgun Tower", null, false);
         TowerOptions shotgunTowerOptions = shotgunTower.getTowerOptions();
         shotgunTowerOptions.setDisplay("&bShotgun Tower");
-        shotgunTowerOptions.setPerShot(9);
+        shotgunTowerOptions.setProjectilesPerShot(9);
         shotgunTowerOptions.setProjectileDamage(3d);
         shotgunTowerOptions.setSpeed(1);
         shotgunTowerOptions.setAmmunitionItem(new ItemStack(Material.STONE_BRICKS));
@@ -301,6 +319,29 @@ public class DefenceTowersMain extends JavaPlugin {
         sniperTowerOptions.setRange(25);
         sniperTowerOptions.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 20, 1));
 
+        StaticUtil.checkConfig("Potato Tower");
+        Tower potatoTower = new Tower(this, "Potato Tower", null, false);
+        TowerOptions potatoTowerOptions = potatoTower.getTowerOptions();
+        potatoTowerOptions.setDisplay("&6Potato Tower");
+        potatoTowerOptions.setProjectileDamage(10d);
+        potatoTowerOptions.setSpeed(1.5f);
+        potatoTowerOptions.setTowerAccuracy(15f);
+        potatoTowerOptions.setProjectileType(ProjectileType.ITEM);
+        potatoTowerOptions.setProjectileMaterial(Material.POTATO);
+        potatoTowerOptions.setColor(Color.fromRGB(183, 146, 104));
+        potatoTowerOptions.color(true);
+        potatoTowerOptions.setColorSize(2f);
+        potatoTowerOptions.addHitType(HitType.SPLIT, 1d);
+        potatoTowerOptions.addHitType(HitType.BREAK, 0.2d);
+        potatoTowerOptions.setSplits(3);
+        potatoTowerOptions.setSplitAmount(5);
+        potatoTowerOptions.setBounceBoost(.3);
+        potatoTowerOptions.setRange(30);
+        potatoTowerOptions.setTowerDelay(40);
+        potatoTowerOptions.setAmmunitionItem(new ItemStack(Material.POTATO));
+        potatoTowerOptions.setBase(new ItemStack((Material.PODZOL)));
+        potatoTowerOptions.setTurret(StaticUtil.getHeadFromValue("eyJ0aW1lc3RhbXAiOjE1ODY4MDM4MzQzMjcsInByb2ZpbGVJZCI6IjNmYzdmZGY5Mzk2MzRjNDE5MTE5OWJhM2Y3Y2MzZmVkIiwicHJvZmlsZU5hbWUiOiJZZWxlaGEiLCJzaWduYXR1cmVSZXF1aXJlZCI6dHJ1ZSwidGV4dHVyZXMiOnsiU0tJTiI6eyJ1cmwiOiJodHRwOi8vdGV4dHVyZXMubWluZWNyYWZ0Lm5ldC90ZXh0dXJlLzZmNTVlYjQ0ODJhNWM4MGEyOTRmNDU2MDQ1ZDIzNDgzYWMzMDVjZDdhZjFkZWExNWI2MmYyNjlhMGMzNzA5MGEifX19"));
+
     }
 
     public List<Tower> getTowers() {
@@ -308,15 +349,12 @@ public class DefenceTowersMain extends JavaPlugin {
     }
 
     public void updateExistingTowers(String name) {
-        if (allTowers.size() != 0) {
+        if (allTowers.size() == 0) return;
 
-            for (Tower towers : allTowers) {
-                if (!towers.getName().equals(name)) continue;
-
-                towers.restart();
-
-            }
-
+        for (Tower towers : allTowers) {
+            if (!towers.getName().equals(name)) continue;
+            towers.kickOperator();
+            towers.restart();
         }
     }
 

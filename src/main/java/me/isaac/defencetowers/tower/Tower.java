@@ -1,11 +1,14 @@
-package me.isaac.defencetowers;
+package me.isaac.defencetowers.tower;
 
+import me.isaac.defencetowers.DefenceTowersMain;
+import me.isaac.defencetowers.ProjectileType;
+import me.isaac.defencetowers.StaticUtil;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.Particle.DustOptions;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
@@ -13,19 +16,15 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.EulerAngle;
 import org.bukkit.util.Vector;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.logging.Level;
 
 public class Tower {
 
@@ -52,9 +51,7 @@ public class Tower {
 
     //TODO
     // Optional health system
-    // Hit Options; BREAK(projectile gets removed), SPLIT(projectile will split into more projectiles), LAUNCH(hit entities will be launched), BOUNCE(projectile will bounce off surfaces)
-    // Multiple hit options are allowed to be selected, maybe with chance?
-    // Split Directions; RANDOM, TARGETTYPE
+    // Make targeting system when players are controlling towers, get nearby entity player is looking at
 
     public Tower(DefenceTowersMain main, String name, Location location, boolean create) {
         towerInstance = this;
@@ -336,14 +333,10 @@ public class Tower {
 
     }
 
-    List<Projectile> towersActiveProjectileList = new ArrayList<>();
+    public List<Projectile> towersActiveProjectileList = new ArrayList<>();
 
     public void addActiveProjectile(Projectile projectile) {
         towersActiveProjectileList.add(projectile);
-    }
-
-    public void shoot(ProjectileType type, Vector direction) {
-        shoot(turretBarrelLocation, type, direction);
     }
 
     public void shoot(Location location, ProjectileType type, Vector direction) {
@@ -404,19 +397,19 @@ public class Tower {
                 projectile = shootWitherSkull(location, direction);
                 break;
         }
+        updateProjectile(projectile);
         return projectile;
     }
 
     private double criticalMultiplier = 1;
 
-    public Projectile shootArrow(Location location, Vector direction) {
+    private Projectile shootArrow(Location location, Vector direction) {
         Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         arrow.setRotation(location.getYaw(), location.getPitch());
-        updateProjectile(arrow);
         return arrow;
     }
 
-    public Projectile shootWitherSkull(Location location, Vector direction) {
+    private Projectile shootWitherSkull(Location location, Vector direction) {
         Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
@@ -432,7 +425,7 @@ public class Tower {
 
     }
 
-    public Projectile shootTrident(Location location, Vector direction) {
+    private Projectile shootTrident(Location location, Vector direction) {
         Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
@@ -445,12 +438,11 @@ public class Tower {
             t.setRotation(turretStand.getLocation().getYaw(), turretStand.getLocation().getPitch());
         });
 
-        updateProjectile(trident);
 
         return trident;
     }
 
-    public Projectile shootItem(Location location, Vector direction) {
+    private Projectile shootItem(Location location, Vector direction) {
         Arrow arrow = location.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
@@ -460,11 +452,10 @@ public class Tower {
             t.setItem(new ItemStack(towerOptions.getProjectileMaterial()));
         });
 
-        updateProjectile(snowball);
         return snowball;
     }
 
-    public Projectile shootFireball(Location location, Vector direction, boolean small) {
+    private Projectile shootFireball(Location location, Vector direction, boolean small) {
         Arrow arrow = turretStand.getWorld().spawnArrow(location, direction, (float) towerOptions.getProjectileSpeed(), towerOptions.getTowerAccuracy());
         Vector velocity = arrow.getVelocity();
         arrow.remove();
@@ -483,7 +474,6 @@ public class Tower {
             });
         }
 
-        updateProjectile(fireball);
         return fireball;
     }
 
@@ -501,6 +491,7 @@ public class Tower {
         pdc.set(main.getKeys().bullet, PersistentDataType.STRING, name);
         pdc.set(main.getKeys().bulletDamage, PersistentDataType.DOUBLE, towerOptions.getProjectileDamage());
         pdc.set(main.getKeys().bounces, PersistentDataType.INTEGER, towerOptions.getBounces());
+        pdc.set(main.getKeys().splits, PersistentDataType.INTEGER, towerOptions.getSplits());
         pdc.set(main.getKeys().fire, PersistentDataType.INTEGER, towerOptions.getFireTicks());
         pdc.set(main.getKeys().tail, PersistentDataType.STRING, towerOptions.isTail() + " " + towerOptions.getTailRed() + " " + towerOptions.getTailGreen() + " " + towerOptions.getTailBlue());
 
@@ -756,6 +747,12 @@ public class Tower {
                 case LEAST_HEALTH:
                     target = ((LivingEntity) entity).getHealth() < ((LivingEntity) target).getHealth() ? entity : target;
                     break;
+                case WEAKEST:
+                    target = ((LivingEntity) entity).getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue() < ((LivingEntity) target).getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue() ? entity : target;
+                    break;
+                case STRONGEST:
+                    target = ((LivingEntity) entity).getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue() > ((LivingEntity) target).getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).getValue() ? entity : target;
+                    break;
             }
 
             Location targetLocation = target.getLocation().add(0, target.getHeight() / 2, 0);
@@ -792,6 +789,10 @@ public class Tower {
 
     public TowerOptions getTowerOptions() {
         return towerOptions;
+    }
+
+    public Location getTurretBarrelLocation() {
+        return turretBarrelLocation;
     }
 
 }

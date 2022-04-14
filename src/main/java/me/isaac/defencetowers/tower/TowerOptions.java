@@ -1,10 +1,13 @@
-package me.isaac.defencetowers;
+package me.isaac.defencetowers.tower;
 
+import me.isaac.defencetowers.ConfigDefaults;
+import me.isaac.defencetowers.DefenceTowersMain;
+import me.isaac.defencetowers.ProjectileType;
+import me.isaac.defencetowers.StaticUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
@@ -13,7 +16,9 @@ import org.bukkit.potion.PotionEffectType;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
 public class TowerOptions {
@@ -26,16 +31,17 @@ public class TowerOptions {
     private ItemStack turretItem, baseItem, ammunitionItem;
     private Material projectileMaterial;
     private boolean showDisplay, projectileGravity, tailToggle, silentTower, silentProjectiles, visualFire;
-    private int projectilesPerShot, shotConsumption, pierceLevel, knockback, fireTicks, maxAmmo, bounces,
+    private int projectilesPerShot, shotConsumption, pierceLevel, knockback, fireTicks, maxAmmo, bounces, splits, splitAmount,
     tailRed, tailGreen, tailBlue;
     private double towerRange, projectileDamage, critChance, critMultiplier, critAccuracy, ammunitionPickupRange,
-    towerOffset, nameOffset;
+    towerOffset, nameOffset, bounceBoost;
     private float towerAccuracy, projectileSpeed, tailSize;
     private long towerDelay, projectileGap;
     private ProjectileType projectileType;
     private final List<EntityType> blacklist = new ArrayList<>();
     private final List<EntityType> whitelist = new ArrayList<>();
     private final List<PotionEffect> potionEffects = new ArrayList<>();
+    private final HashMap<HitType, Double> hitTypes = new HashMap<>();
 
     public TowerOptions(DefenceTowersMain main, String name, boolean create) {
         this.main = main;
@@ -70,6 +76,9 @@ public class TowerOptions {
         yaml.set(ConfigDefaults.PROJECTILE_VISUAL_FIRE.key, visualFire);
         yaml.set(ConfigDefaults.PROJECTILE_FIRE.key, fireTicks);
         yaml.set(ConfigDefaults.PROJECTILE_BOUNCES.key, bounces);
+        yaml.set(ConfigDefaults.PROJECTILE_SPLITS.key, splits);
+        yaml.set(ConfigDefaults.PROJECTILE_SPLIT_AMOUNT.key, splitAmount);
+        yaml.set(ConfigDefaults.PROJECTILE_BOUNCE_BOOST.key, bounceBoost);
 
         try {
             yaml.set(ConfigDefaults.PROJECTILE_TYPE.key, projectileType.toString());
@@ -88,8 +97,13 @@ public class TowerOptions {
         yaml.set(ConfigDefaults.PROJECTILE_TAIL_GREEN.key, tailGreen + 1);
         yaml.set(ConfigDefaults.PROJECTILE_TAIL_BLUE.key, tailBlue + 1);
         yaml.set(ConfigDefaults.PROJECTILE_TAIL_SIZE.key, tailSize);
-        yaml.set(ConfigDefaults.PROJECTILE_PIERCING.key, pierceLevel);// Arrow spicific
-        yaml.set(ConfigDefaults.PROJECTILE_KNOCKBACK.key, knockback);
+        yaml.set(ConfigDefaults.PROJECTILE_PIERCING.key, pierceLevel); // Doesnt work for all projectiles
+        yaml.set(ConfigDefaults.PROJECTILE_KNOCKBACK.key, knockback);  // ^
+
+        ArrayList<String> hitTypeStrings = new ArrayList<>();
+        hitTypes.forEach((type, chance) -> {hitTypeStrings.add(type.toString() + " " + chance);});
+
+        yaml.set(ConfigDefaults.PROJECTILE_HIT_TYPES.key, hitTypeStrings);
 
         yaml.set(ConfigDefaults.CRITICAL_CHANCE.key, critChance);
         yaml.set(ConfigDefaults.CRITICAL_MULTIPLIER.key, critMultiplier);
@@ -151,6 +165,9 @@ public class TowerOptions {
         projectileSpeed = (float) yaml.getDouble(ConfigDefaults.PROJECTILE_SPEED.key);
         towerAccuracy = yaml.getInt(ConfigDefaults.PROJECTILE_ACCURACY.key);
         bounces = yaml.getInt(ConfigDefaults.PROJECTILE_BOUNCES.key);
+        splits = yaml.getInt(ConfigDefaults.PROJECTILE_SPLITS.key);
+        splitAmount = yaml.getInt(ConfigDefaults.PROJECTILE_SPLIT_AMOUNT.key);
+        bounceBoost = yaml.getDouble(ConfigDefaults.PROJECTILE_BOUNCE_BOOST.key);
         visualFire = yaml.getBoolean(ConfigDefaults.PROJECTILE_VISUAL_FIRE.key);
         fireTicks = yaml.getInt(ConfigDefaults.PROJECTILE_FIRE.key);
         tailToggle = yaml.getBoolean(ConfigDefaults.PROJECTILE_TAIL.key);
@@ -159,6 +176,21 @@ public class TowerOptions {
         tailGreen = yaml.getInt(ConfigDefaults.PROJECTILE_TAIL_GREEN.key) - 1;
         tailBlue = yaml.getInt(ConfigDefaults.PROJECTILE_TAIL_BLUE.key) - 1;
         tailSize = (float) yaml.getDouble(ConfigDefaults.PROJECTILE_TAIL_SIZE.key);
+
+        for (String hitTypeStr : yaml.getStringList(ConfigDefaults.PROJECTILE_HIT_TYPES.key)) {
+            String[] split = hitTypeStr.split("\\s+");
+            try {
+                double value = Double.parseDouble(split[1]);
+                if (value <= 0) {
+                    value = .5;
+                    Bukkit.getLogger().log(Level.WARNING, split[0] + " cannot be less than or equal to 0, setting to .5");
+                }
+                hitTypes.put(HitType.valueOf(split[0]), value);
+            } catch (IllegalArgumentException ex) {
+                Bukkit.getLogger().log(Level.WARNING,
+                        DefenceTowersMain.prefix + split[0] + " is not a valid hit type while loading " + name);
+            }
+        }
 
         if (tailRed < 1) tailRed = 1;
         else if (tailRed > 256) tailRed = 256;
@@ -246,38 +278,59 @@ public class TowerOptions {
         } catch (NullPointerException ignored) {
         }
 
-        if (towerDelay <= 0)
+        if (towerDelay <= 0) {
             towerDelay = 1;
+            Bukkit.getLogger().log(Level.WARNING, ConfigDefaults.TOWER_DELAY.key + " was lower than 1, setting to 1");
+        }
+
+        if (hitTypes.size() == 0) {
+            hitTypes.put(HitType.BREAK, 1d);
+            Bukkit.getLogger().log(Level.WARNING, ConfigDefaults.PROJECTILE_HIT_TYPES.key + " was empty, assuming hitType BREAK 1");
+        }
+
+        save();
 
     }
 
-    public void setPerShot(int perShot) {
-        this.projectilesPerShot = perShot;
+    public HashMap<HitType, Double> getHitTypes() {
+        return hitTypes;
+    }
+
+    public HitType getRandomHitType() {
+
+        double maxChance = 0, randomChance;
+        for (double chances : hitTypes.values()) {
+            maxChance += chances;
+        }
+
+        randomChance = ThreadLocalRandom.current().nextDouble(maxChance);
+        maxChance = 0;
+
+        for (HitType hitType : hitTypes.keySet()) {
+            maxChance += hitTypes.get(hitType);
+            if (randomChance <= maxChance) return hitType;
+        }
+
+        throw new ArithmeticException(randomChance + " out of bounds " + maxChance);
+
+    }
+
+    private void saveUpdate() {
+        save();
+        main.updateExistingTowers(name);
+    }
+
+    public void setProjectilesPerShot(int projectilesPerShot) {
+        this.projectilesPerShot = projectilesPerShot;
         saveUpdate();
     }
 
-    public void setProjectileMaterial(Material material) {
-        projectileMaterial = material;
-        saveUpdate();
+    public int getProjectilesPerShot() {
+        return projectilesPerShot;
     }
 
     public void setGap(int gap) {
         this.projectileGap = gap;
-        saveUpdate();
-    }
-
-    public void setSpeed(float speed) {
-        projectileSpeed = speed;
-        saveUpdate();
-    }
-
-    public void setTowerAccuracy(float accuracy) {
-        this.towerAccuracy = accuracy;
-        saveUpdate();
-    }
-
-    public void setVisualFire(boolean visualFire) {
-        this.visualFire = visualFire;
         saveUpdate();
     }
 
@@ -286,19 +339,87 @@ public class TowerOptions {
         saveUpdate();
     }
 
+    public int getFireTicks() {
+        return fireTicks;
+    }
+
+    public void setSplitAmount(int splitAmount) {
+        this.splitAmount = splitAmount;
+        saveUpdate();
+    }
+
+    public int getSplitAmount() {
+        return splitAmount;
+    }
+
     public void setTowerDelay(int delay) {
         this.towerDelay = delay;
         saveUpdate();
     }
 
-    public void setRange(double range) {
-        this.towerRange = range;
+    public void setBounces(int bounces) {
+        this.bounces = bounces;
         saveUpdate();
     }
 
-    public void color(boolean color) {
-        tailToggle = color;
+    public int getBounces() {
+        return bounces;
+    }
+
+    public void setPierceLevel(int level) {
+        pierceLevel = level;
         saveUpdate();
+    }
+
+    public int getPierceLevel() {
+        return pierceLevel;
+    }
+
+    public void setKnockback(int level) {
+        knockback = level;
+        saveUpdate();
+    }
+
+    public int getKnockback() {
+        return knockback;
+    }
+
+    public void setMaxAmmo(int maxAmmo) {
+        this.maxAmmo = maxAmmo;
+        saveUpdate();
+    }
+
+    public int getMaxAmmo() {
+        return maxAmmo;
+    }
+
+    public void setShotConsumption(int shotConsumption) {
+        this.shotConsumption = shotConsumption;
+        saveUpdate();
+    }
+
+    public void setSplits(int splits) {
+        this.splits = splits;
+    }
+
+    public int getSplits() {
+        return splits;
+    }
+
+    public int getShotConsumption() {
+        return shotConsumption;
+    }
+
+    public int getTailRed() {
+        return tailRed;
+    }
+
+    public int getTailGreen() {
+        return tailGreen;
+    }
+
+    public int getTailBlue() {
+        return tailBlue;
     }
 
     public void setColor(Color color) {
@@ -308,55 +429,17 @@ public class TowerOptions {
         saveUpdate();
     }
 
-    public void setBounces(int bounces) {
-        this.bounces = bounces;
+    public void setProjectileMaterial(Material material) {
+        projectileMaterial = material;
         saveUpdate();
     }
 
-    public void setPierceLevel(int level) {
-        pierceLevel = level;
-        saveUpdate();
-    }
-
-    public void setKnockback(int level) {
-        knockback = level;
-        saveUpdate();
-    }
-
-    public void whitelist(EntityType type) {
-        if (whitelist.contains(type)) return;
-        whitelist.add(type);
-        saveUpdate();
-    }
-
-    public void blacklist(EntityType type) {
-        if (blacklist.contains(type)) return;
-        blacklist.add(type);
-        saveUpdate();
-    }
-
-    public void clearBlacklist() {
-        blacklist.clear();
-        saveUpdate();
-    }
-
-    public void clearWhitelist() {
-        whitelist.clear();
-        saveUpdate();
-    }
-
-    public void setProjectileDamage(Double damage) {
-        projectileDamage = damage;
-        saveUpdate();
+    public Material getProjectileMaterial() {
+        return projectileMaterial;
     }
 
     public void setBase(ItemStack base) {
         baseItem = base;
-        saveUpdate();
-    }
-
-    public void setProjectileType(ProjectileType type) {
-        projectileType = type;
         saveUpdate();
     }
 
@@ -370,28 +453,8 @@ public class TowerOptions {
         saveUpdate();
     }
 
-    public void setCritChance(double chance) {
-        critChance = chance;
-        saveUpdate();
-    }
-
-    public void setCritMultiplier(double multiplier) {
-        critMultiplier = multiplier;
-        saveUpdate();
-    }
-
-    public void setCritAccuracy(double accuracy) {
-        critAccuracy = accuracy;
-        saveUpdate();
-    }
-
     public void clearPotionEffects() {
         potionEffects.clear();
-    }
-
-    public void setColorSize(float size) {
-        tailSize = size;
-        saveUpdate();
     }
 
     public ItemStack getAmmunitionItem() {
@@ -403,26 +466,6 @@ public class TowerOptions {
         saveUpdate();
     }
 
-    public List<EntityType> getWhitelist() {
-        return whitelist;
-    }
-
-    public List<EntityType> getBlacklist() {
-        return blacklist;
-    }
-
-    public boolean projectileHasGravity() {
-        return projectileGravity;
-    }
-
-    public float getProjectileSpeed() {
-        return projectileSpeed;
-    }
-
-    public double getTowerRange() {
-        return towerRange;
-    }
-
     public void addPotionEffect(PotionEffect potion) {
         potionEffects.add(potion);
         saveUpdate();
@@ -432,60 +475,13 @@ public class TowerOptions {
         return potionEffects;
     }
 
-    public double getProjectileDamage() {
-        return projectileDamage;
-    }
-
-    public int getProjectilesPerShot() {
-        return projectilesPerShot;
-    }
-
-    public int getShotConsumption() {
-        return shotConsumption;
-    }
-
-    public int getPierceLevel() {
-        return pierceLevel;
-    }
-
-    public int getKnockback() {
-        return knockback;
-    }
-
-    public float getTowerAccuracy() {
-        return towerAccuracy;
-    }
-
-    public int getFireTicks() {
-        return fireTicks;
-    }
-
-    public float getTailSize() {
-        return tailSize;
-    }
-
-    public int getBounces() {
-        return bounces;
-    }
-
-    public double getAmmunitionPickupRange() {
-        return ammunitionPickupRange;
-    }
-
-    public boolean shouldShowDisplay() {
-        return showDisplay;
-    }
-
-    public double getTowerOffset() {
-        return towerOffset;
-    }
-
-    public double getNameOffset() {
-        return nameOffset;
-    }
-
     public ItemStack getBaseItem() {
         return baseItem;
+    }
+
+    public void setProjectileType(ProjectileType type) {
+        projectileType = type;
+        saveUpdate();
     }
 
     public ProjectileType getProjectileType() {
@@ -496,32 +492,56 @@ public class TowerOptions {
         return projectileGap;
     }
 
-    public Material getProjectileMaterial() {
-        return projectileMaterial;
+    public long getTowerDelay() {
+        return towerDelay;
     }
 
-    public double getCritChance() {
-        return critChance;
+    public String getDisplay() {
+        return display;
     }
 
-    public double getCritAccuracy() {
-        return critAccuracy;
+    public ItemStack getTurretItem() {
+        return turretItem;
     }
 
-    public double getCritMultiplier() {
-        return critMultiplier;
+    public void setSpeed(float speed) {
+        projectileSpeed = speed;
+        saveUpdate();
     }
 
-    public int getTailRed() {
-        return tailRed;
+    public float getProjectileSpeed() {
+        return projectileSpeed;
     }
 
-    public int getTailGreen() {
-        return tailGreen;
+    public void setTowerAccuracy(float accuracy) {
+        this.towerAccuracy = accuracy;
+        saveUpdate();
     }
 
-    public int getTailBlue() {
-        return tailBlue;
+    public float getTowerAccuracy() {
+        return towerAccuracy;
+    }
+
+    public void setColorSize(float size) {
+        tailSize = size;
+        saveUpdate();
+    }
+
+    public float getTailSize() {
+        return tailSize;
+    }
+
+    public boolean projectileHasGravity() {
+        return projectileGravity;
+    }
+
+    public boolean shouldShowDisplay() {
+        return showDisplay;
+    }
+
+    public void setVisualFire(boolean visualFire) {
+        this.visualFire = visualFire;
+        saveUpdate();
     }
 
     public boolean isVisualFire() {
@@ -540,25 +560,110 @@ public class TowerOptions {
         return silentTower;
     }
 
-    public long getTowerDelay() {
-        return towerDelay;
+    public void color(boolean color) {
+        tailToggle = color;
+        saveUpdate();
     }
 
-    public int getMaxAmmo() {
-        return maxAmmo;
+    public void setCritChance(double chance) {
+        critChance = chance;
+        saveUpdate();
     }
 
-    private void saveUpdate() {
-        save();
-        main.updateExistingTowers(name);
+    public double getCritChance() {
+        return critChance;
     }
 
-    public String getDisplay() {
-        return display;
+    public void setCritAccuracy(double accuracy) {
+        critAccuracy = accuracy;
+        saveUpdate();
     }
 
-    public ItemStack getTurretItem() {
-        return turretItem;
+    public double getCritAccuracy() {
+        return critAccuracy;
+    }
+
+    public void setCritMultiplier(double multiplier) {
+        critMultiplier = multiplier;
+        saveUpdate();
+    }
+
+    public double getCritMultiplier() {
+        return critMultiplier;
+    }
+
+    public double getProjectileDamage() {
+        return projectileDamage;
+    }
+
+    public double getAmmunitionPickupRange() {
+        return ammunitionPickupRange;
+    }
+
+    public double getTowerOffset() {
+        return towerOffset;
+    }
+
+    public void setBounceBoost(double bounceBoost) {
+        this.bounceBoost = bounceBoost;
+        saveUpdate();
+    }
+
+    public double getBounceBoost() {
+        return bounceBoost;
+    }
+
+    public double getNameOffset() {
+        return nameOffset;
+    }
+
+    public void setRange(double range) {
+        this.towerRange = range;
+        saveUpdate();
+    }
+
+    public double getTowerRange() {
+        return towerRange;
+    }
+
+    public void setProjectileDamage(Double damage) {
+        projectileDamage = damage;
+        saveUpdate();
+    }
+
+    public void addHitType(HitType hitType, double chance) {
+        hitTypes.put(hitType, chance);
+        saveUpdate();
+    }
+
+    public void whitelist(EntityType type) {
+        if (whitelist.contains(type)) return;
+        whitelist.add(type);
+        saveUpdate();
+    }
+
+    public List<EntityType> getWhitelist() {
+        return whitelist;
+    }
+
+    public void clearWhitelist() {
+        whitelist.clear();
+        saveUpdate();
+    }
+
+    public void blacklist(EntityType type) {
+        if (blacklist.contains(type)) return;
+        blacklist.add(type);
+        saveUpdate();
+    }
+
+    public List<EntityType> getBlacklist() {
+        return blacklist;
+    }
+
+    public void clearBlacklist() {
+        blacklist.clear();
+        saveUpdate();
     }
 
 }

@@ -1,5 +1,6 @@
-package me.isaac.defencetowers;
+package me.isaac.defencetowers.tower;
 
+import me.isaac.defencetowers.StaticUtil;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;

@@ -19,6 +19,9 @@ public enum ConfigDefaults {
     PROJECTILE_VISUAL_FIRE("Projectile.Visual Fire", false),
     PROJECTILE_FIRE("Projectile.Fire Ticks", 0),
     PROJECTILE_BOUNCES("Projectile.Bounces", 0),
+    PROJECTILE_BOUNCE_BOOST("Projectile.Bounce Boost", 1),
+    PROJECTILE_SPLITS("Projectile.Splits", 0),
+    PROJECTILE_SPLIT_AMOUNT("Projectile.Split Amount", 1),
     PROJECTILE_TYPE("Projectile.Type", ProjectileType.ARROW.name()),
     PROJECTILE_MATERIAL("Projectile.Material", Material.COAL_BLOCK.name()),
     PROJECTILE_PIERCING("Projectile.Piercing", 0),
@@ -28,6 +31,7 @@ public enum ConfigDefaults {
     PROJECTILE_TAIL_GREEN("Projectile.Tail.Green", 256),
     PROJECTILE_TAIL_BLUE("Projectile.Tail.Blue", 256),
     PROJECTILE_TAIL_SIZE("Projectile.Tail.Size", 1),
+    PROJECTILE_HIT_TYPES("Projectile.Hit Types", new ArrayList<>()),
 
     CRITICAL_CHANCE("Critical.Chance", .3),
     CRITICAL_MULTIPLIER("Critical.Multiplier", 2),
@@ -53,8 +57,8 @@ public enum ConfigDefaults {
     WHITELIST("Whitelist", new ArrayList<EntityType>()),
     POTION_EFFECTS("Potion Effects", new ArrayList<>());
 
-    final String key;
-    final Object value;
+    public final String key;
+    public final Object value;
 
     ConfigDefaults(String key, Object value) {
         this.key = key;

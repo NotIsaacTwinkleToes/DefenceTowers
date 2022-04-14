@@ -1,8 +1,7 @@
 package me.isaac.defencetowers.events.custom;
 
 import me.isaac.defencetowers.DefenceTowersMain;
-import me.isaac.defencetowers.Tower;
-import org.bukkit.Bukkit;
+import me.isaac.defencetowers.tower.Tower;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -12,7 +11,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.persistence.PersistentDataType;
 
-public class BulletHitEntityEvent extends Event {
+public class ProjectileHitEntityEvent extends Event {
 
     HandlerList handlers = new HandlerList();
 
@@ -28,7 +27,7 @@ public class BulletHitEntityEvent extends Event {
     final double critical, projectileDamage;
     final String towerName;
 
-    public BulletHitEntityEvent(DefenceTowersMain main, EntityDamageByEntityEvent damageEvent) {
+    public ProjectileHitEntityEvent(DefenceTowersMain main, EntityDamageByEntityEvent damageEvent) {
 
         projectile = (Projectile) damageEvent.getDamager();
         entity = damageEvent.getEntity();
@@ -56,7 +55,7 @@ public class BulletHitEntityEvent extends Event {
         try {
             ((LivingEntity) damageEvent.getEntity()).setNoDamageTicks(0);
             tower.getTowerOptions().getPotionEffects().forEach(effect -> ((LivingEntity) damageEvent.getEntity()).addPotionEffect(effect));
-        } catch (ClassCastException ex) {}
+        } catch (ClassCastException ignored) {}
 
         if (damageEvent.getDamage() == 0) damageEvent.setCancelled(true);
         damageEvent.setDamage(damageEvent.getDamage() * critical);

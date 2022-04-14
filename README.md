@@ -1,9 +1,9 @@
 # DefenceTowers Setup
-1. Extract 'DefenceTowers.zip' to reveal 'DefenceTowers.jar' and 'Towers' folder.
+1. Extract 'DefenceTowers.zip' to reveal 'DefenceTowers.jar'.
 2. Drag and drop DefenceTowers.jar into plugins folder.
 3. DONE!
 
-Upon plugin load, an 'Example Tower' will be created, if it doesn't exist, that will contain the most up-to-date default configuration options.
+Upon plugin load, an 'Example Tower' will be created, if it doesn't exist. It will contain the most up-to-date default configuration options.
 
 If you want some extra example towers, use the command '/dt genExamples'.
 # Using DefenceTowers
@@ -11,14 +11,14 @@ If you want some extra example towers, use the command '/dt genExamples'.
 
 1. Create a new **YAML** file. (file extension: .yml). ex. 'New Tower.yml'
 
-2. Copy and paste Example Tower.yml's content into your new tower.
+2. Copy and paste Example Tower.yml's content into your new tower, or type '/dt get towername'. This will give you the tower in game, and generate default configuration options.
 
 3. Change options to your liking and save.
 
 4. Restart server.
+
 **Creating a tower file and not restarting may cause strange tower behavior**
 
-Now doing /dt list will display your new tower.
 ## Editing a tower
  Editing towers don't require a server restart, instead, you can reload the tower's configuration with the command **/dt reload [tower name]**.
  

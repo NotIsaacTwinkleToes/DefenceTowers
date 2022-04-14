@@ -4,16 +4,14 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import me.isaac.defencetowers.tower.Tower;
 import org.bukkit.ChatColor;
-import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 public class Commands implements TabExecutor {
 
@@ -58,7 +56,7 @@ public class Commands implements TabExecutor {
         return list;
     }
     
-    //TODO Command system so that towers can be made and edited in game.
+    //TODO Command system so that towers can be made and edited in-game.
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 

@@ -1,7 +1,7 @@
 # Tower configuration help
 
 ## Display
-### Show: true/false
+### Show: true
 If tower should have a name above it.
 
 ### Display Name: '&dExample Tower'
@@ -14,7 +14,7 @@ How many projectiles should be launched per shot cycle.
 ### Gap: 0
 Time in ticks between projectiles in Per Shot. ex. if 'Per Shot' is 20, and 'Gap' is 1, it would 20 ticks to shoot all 20 projectiles.
 
-### Gravity: true/false
+### Gravity: true
 If projectiles should be affected by gravity. Does not affect all projectile types.
 
 ### Damage: 2.0
@@ -26,7 +26,7 @@ Speed of projectiles, higher values means the projectiles will go further, faste
 ### Accuracy: 10.0
 Spread of projectiles. 1 is very accurate, 10 is a good default
 
-### Visual Fire: true/false
+### Visual Fire: false
 If the projectile should be on fire. Affects some projectile types.
 
 ### Fire Ticks: 0
@@ -34,6 +34,15 @@ How many ticks the hit entity should be set on fire for.
 
 ### Bounces: 0
 How many times a projectile will bounce.
+
+### Bounce Boost: 1.0
+Multiplier for bouncing projectiles.
+
+### Splits: 0
+How many times a projectile will split.
+
+### Split Amount: 1
+How many projectiles spawn because of a split.
 
 ### Type: ARROW
 Projectile type. Available types; ARROW ITEM LARGE_FIREBALL SMALL_FIREBALL TRIDENT WITHER_SKULL
@@ -59,6 +68,14 @@ If the projectile should have colored particles follow it.
 
 The size must be within 0 and 2.
 
+### Hit Types:
+        - BREAK 1.0
+        - SPLIT 1.0
+
+This contains effects that are possible when a projectile hits. Higher number = higher chance for effect.
+
+In the above example, it is a 50 - 50 chance of the projectile splitting, or breaking.
+
 ## Critical
 ### Chance: 0.3
 30% chance of an projectile being marked as critical
@@ -73,7 +90,7 @@ A random number between negative accuracy and positive accuracy is added to dama
 ### Target: 10
 How far away the tower can target.
 
-### Pickup: 1.0
+### Pickup Ammunition: 1.0
 How far away the tower can pickup ammunition.
 
 ## Silent:
@@ -179,6 +196,10 @@ Find more entity types here https://hub.spigotmc.org/javadocs/spigot/org/bukkit/
         Accuracy: 10.0 # 1 is very accuracy, 10 is a good defalt
         Visual Fire: false # If the projectile should be on fire. Does not effect all projectile types.
         Fire Ticks: 0 # How long in ticks a hit entity should be set on fire.
+        Bounces: 0 # How many times a projectile can bounce.
+        Bounce Boost: 1.0 # Multiplier for bouncing projectiles.
+        Splits: 0 # How many times a projectile can split.
+        Split Amount: 1 # How many projectiles spawn from a split.
         Bounces: 0 # How many times a projectile can bounce. Does not effect all projectile types.
         Type: ARROW # Available projectile types; ARROW ITEM LARGE_FIREBALL SMALL_FIREBALL TRIDENT WITHER_SKULL
         Material: COAL_BLOCK # If type is ITEM, this material will be displayed.
@@ -190,6 +211,9 @@ Find more entity types here https://hub.spigotmc.org/javadocs/spigot/org/bukkit/
             Green: 256
             Blue: 256
             Size: 1.0 # Size must not exceed 2
+        Hit Types: # Different HitTypes affect projectiles hitting blocks or entities. SPLIT, BREAK, BOUNCE
+        - SPLIT 1.0
+        - BREAK 1.0 # Number after hit type is the chance, in this example its a 50 - 50 chance.
     Critical:
         Chance: 0.3 # Chance for a critical. 0.3 is 30%.
         Multiplier: 2.0 # Projectile damage is multiplied by this number.
@@ -205,6 +229,7 @@ Find more entity types here https://hub.spigotmc.org/javadocs/spigot/org/bukkit/
         Delay: 20 # Time in ticks between shots
         Max Ammo: 0 # Maximum ammo that can be stored in this tower. 0 = infinite
         Offset: 0.55 # How far the tower turret will be from the tower base
+        Name Offset: 1.85 # How for the name will be from the turret.
         Ammunition Item: # DO NOT EDIT
             ==: org.bukkit.inventory.ItemStack
             v: 2975

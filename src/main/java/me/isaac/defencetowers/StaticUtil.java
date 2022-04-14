@@ -1,18 +1,19 @@
 package me.isaac.defencetowers;
 
+import me.isaac.defencetowers.tower.Tower;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Projectile;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.potion.PotionEffect;
+import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
@@ -163,6 +164,33 @@ public class StaticUtil {
             if (towers.towersActiveProjectileList.contains(projectile)) return towers;
         }
         throw new IllegalArgumentException("Projectile was not shot by tower");
+    }
+
+    public static Projectile bounceProjectile(Projectile projectile, Tower tower, BlockFace hitFace) {
+        Vector velocity = new Vector(projectile.getVelocity().getX(), projectile.getVelocity().getY(), projectile.getVelocity().getZ());
+
+        switch(hitFace) {
+            case UP:
+                velocity.setY(velocity.getY() * .75);
+            case DOWN:
+                velocity.setY(-velocity.getY() * tower.getTowerOptions().getBounceBoost());
+                break;
+            case EAST:
+            case WEST:
+                velocity.setX(-velocity.getX() * tower.getTowerOptions().getBounceBoost());
+                break;
+            case NORTH:
+            case SOUTH:
+                velocity.setZ(-velocity.getZ() * tower.getTowerOptions().getBounceBoost());
+                break;
+            default:
+                throw new ArithmeticException("Cant bounce of " + hitFace.toString());
+        }
+
+        projectile.remove();
+
+        return tower.freeProjectile(tower.getTowerOptions().getProjectileType(), projectile.getLocation(), velocity);
+
     }
 
 }
