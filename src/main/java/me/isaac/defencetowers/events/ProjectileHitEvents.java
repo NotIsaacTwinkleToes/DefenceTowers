@@ -63,7 +63,7 @@ public class ProjectileHitEvents implements Listener {
                 tower.addActiveProjectile(projectile);
                 for (int split = 0; split < tower.getTowerOptions().getSplitAmount(); split++) {
                     Projectile splitProjectile = StaticUtil.bounceProjectile(sourceProjectile, tower, hitFace);
-                    splitProjectile.setVelocity(offsetVector(projectile.getVelocity(), .7));
+                    splitProjectile.setVelocity(offsetVector(projectile.getVelocity(), tower.getTowerOptions().getSplitAccuracy()).normalize());
                     splitProjectile.getPersistentDataContainer().set(main.getKeys().splits, PersistentDataType.INTEGER, splits - 1);
                     splitProjectile.getPersistentDataContainer().set(main.getKeys().bounces, PersistentDataType.INTEGER, bounces);
                     tower.addActiveProjectile(splitProjectile);

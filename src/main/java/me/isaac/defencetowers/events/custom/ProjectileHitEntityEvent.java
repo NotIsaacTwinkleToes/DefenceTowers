@@ -13,20 +13,13 @@ import org.bukkit.persistence.PersistentDataType;
 
 public class ProjectileHitEntityEvent extends Event {
 
-    HandlerList handlers = new HandlerList();
-
-    @Override
-    public HandlerList getHandlers() {
-        return handlers;
-    }
-
     final Tower tower;
     final Projectile projectile;
     final Entity entity;
     final int fireTicks, pierce, knockback;
     final double critical, projectileDamage;
     final String towerName;
-
+    HandlerList handlers = new HandlerList();
     public ProjectileHitEntityEvent(DefenceTowersMain main, EntityDamageByEntityEvent damageEvent) {
 
         projectile = (Projectile) damageEvent.getDamager();
@@ -55,11 +48,17 @@ public class ProjectileHitEntityEvent extends Event {
         try {
             ((LivingEntity) damageEvent.getEntity()).setNoDamageTicks(0);
             tower.getTowerOptions().getPotionEffects().forEach(effect -> ((LivingEntity) damageEvent.getEntity()).addPotionEffect(effect));
-        } catch (ClassCastException ignored) {}
+        } catch (ClassCastException ignored) {
+        }
 
         if (damageEvent.getDamage() == 0) damageEvent.setCancelled(true);
         damageEvent.setDamage(damageEvent.getDamage() * critical);
 
+    }
+
+    @Override
+    public HandlerList getHandlers() {
+        return handlers;
     }
 
     public Tower getShooter() {

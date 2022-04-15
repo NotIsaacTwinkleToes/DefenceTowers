@@ -1,10 +1,7 @@
 package me.isaac.defencetowers;
 
 import me.isaac.defencetowers.tower.Tower;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
@@ -19,7 +16,6 @@ import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -29,21 +25,31 @@ public class StaticUtil {
     public static DecimalFormat format = new DecimalFormat("#,###");
 
     public static ItemStack fastItem(Material material, String name, String[] lore, boolean enchanted) {
+        return fastItem(material, name, List.of(lore), enchanted);
+    }
+
+    public static ItemStack fastItem(Material material, String name, List<String> lore, boolean enchanted) {
+
         ItemStack item = new ItemStack(material);
-        ItemMeta itemMeta = item.getItemMeta();
+        ItemMeta itemm = item.getItemMeta();
 
-        assert itemMeta != null;
-        itemMeta.setDisplayName(name);
+        itemm.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
 
-        List<String> loreList = new ArrayList<>(Arrays.asList(lore));
+        List<String> tempList = new ArrayList<>();
 
-        itemMeta.setLore(loreList);
+        for (String str : lore) {
+            if (str.equals("")) continue;
+            tempList.add(ChatColor.translateAlternateColorCodes('&', str));
+        }
 
-        if (enchanted) itemMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        item.setItemMeta(itemMeta);
+        itemm.setLore(tempList);
+
+        if (enchanted) itemm.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        item.setItemMeta(itemm);
         if (enchanted) item.addUnsafeEnchantment(Enchantment.DURABILITY, 1);
 
         return item;
+
     }
 
     public static List<String> defaultBlacklistTypes() {

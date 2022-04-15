@@ -1,14 +1,17 @@
 package me.isaac.defencetowers;
 
-import me.isaac.defencetowers.events.ProjectileHitEvents;
-import me.isaac.defencetowers.events.InteractTower;
-import me.isaac.defencetowers.events.PlaceTower;
-import me.isaac.defencetowers.events.PlayerLeave;
+import me.isaac.defencetowers.events.*;
 import me.isaac.defencetowers.tower.*;
-import org.bukkit.*;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.ChatColor;
+import org.bukkit.Color;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.PluginManager;
@@ -27,41 +30,35 @@ import java.util.logging.Level;
 public class DefenceTowersMain extends JavaPlugin {
 
     /*
-    Added 2 more target types, STRONGEST, WEAKEST
-        STRONGEST will attack the entity that does the most damage,
-        WEAKEST will attack the entity that does the least damage.
-
-    Added new tower config options, Splits, Split amount, Bounce Boost, Hit Types.
-
-    Added HitTypes - These will affect what happens when a projectile hits something.
-        BREAK - projectiles will be removed.
-        SPLIT - projectiles will split into multiple projectiles before being removed.
-       BOUNCE - projectiles will bounce multiple times before being removed.
-
-    Added Potato Tower example
-
-    Fixed placing towers inside other towers
+    Added split accuracy option.
+    Added health system for towers along with more configuration options.
+    Added permission 'defencetowers.seeblockedhealth'. When looking at a tower, the player is sent an action bar message containing the towers health.
+    Added messages.yml, containing most messages sent to users, more may be added. Auto-Updating...
+    Altered towers aiming at a distance.
+    Fixed tail always showing.
+    Fixed towers hitbox.
      */
 
-    private NamespacedKeys keys;
-
-    public static DefenceTowersMain instance;
-
     public static final File towerFolder = new File("plugins//DefenceTowers//Towers");
-    public static final String prefix = ChatColor.translateAlternateColorCodes('&', "&7[&dDefence Towers&7]&r ");
-
+    public static DefenceTowersMain instance;
+    public static String prefix;
+    final File towerLocationsFile = new File(getDataFolder().getPath(), "TowerLocations.yml");
+    final File messages = new File(getDataFolder().getPath(), "messages.yml");
     private final List<Tower> allTowers = new ArrayList<>();
-
-    final File towerLocationsFile = new File("plugins//DefenceTowers//TowerLocations.yml");
+    public YamlConfiguration messagesYaml;
+    public TowerItems towerItems;
     YamlConfiguration towerLocationYaml = YamlConfiguration.loadConfiguration(towerLocationsFile);
-
-    public final TowerItems towerItems = new TowerItems();
+    private NamespacedKeys keys;
+    private InteractTower interactTower;
+    private LookAtTower lookAtTower;
 
     public void onEnable() {
 
         instance = this;
-
         keys = new NamespacedKeys(this);
+        createMessages();
+
+        towerItems = new TowerItems(this);
 
         registerCommands();
         registerEvents();
@@ -70,7 +67,35 @@ public class DefenceTowersMain extends JavaPlugin {
 
         loadExistingTowers();
 
-        removeTurretBulletsLoop();
+        defaultLoop();
+
+    }
+
+    public void createMessages() {
+
+        if (!messages.exists()) {
+            try {
+                messages.createNewFile();
+            } catch (IOException ignored) {
+            }
+        }
+
+        messagesYaml = YamlConfiguration.loadConfiguration(messages);
+
+        for (MessageDefault message : MessageDefault.values()) {
+
+            if (messagesYaml.get(message.path) == null) {
+                messagesYaml.set(message.path, message.value);
+            }
+
+        }
+
+        try {
+            messagesYaml.save(messages);
+        } catch (IOException ignored) {
+        }
+
+        prefix = ChatColor.translateAlternateColorCodes('&', messagesYaml.getString("Prefix"));
 
     }
 
@@ -90,17 +115,18 @@ public class DefenceTowersMain extends JavaPlugin {
 
     }
 
-    private InteractTower interactTower;
-
     private void registerEvents() {
         PluginManager pm = getServer().getPluginManager();
 
         interactTower = new InteractTower(this);
+        lookAtTower = new LookAtTower(this);
 
         pm.registerEvents(new PlaceTower(this), this);
         pm.registerEvents(new ProjectileHitEvents(this), this);
         pm.registerEvents(interactTower, this);
         pm.registerEvents(new PlayerLeave(this), this);
+        pm.registerEvents(new TowerTakeDamage(this), this);
+        pm.registerEvents(lookAtTower, this);
 
     }
 
@@ -116,19 +142,37 @@ public class DefenceTowersMain extends JavaPlugin {
         for (World worlds : getServer().getWorlds()) {
             for (Entity entity : worlds.getEntities()) {
                 if (!entity.getPersistentDataContainer().has(getKeys().bullet, PersistentDataType.STRING)) continue;
-                if ((entity.getVelocity().length() < .2 && !entity.hasGravity()) || entity.isOnGround()) entity.remove();
+                if ((entity.getVelocity().length() < .2 && !entity.hasGravity()) || entity.isOnGround())
+                    entity.remove();
             }
         }
     }
 
-    private void removeTurretBulletsLoop() {
+    private void defaultLoop() {
 
         new BukkitRunnable() {
             public void run() {
-                removeProjectiles();
-            }
-        }.runTaskTimer(this, 0, 5);
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        removeProjectiles();
+                    }
+                }.runTask(instance);
 
+                displayTowerHealth();
+            }
+        }.runTaskTimerAsynchronously(this, 0, 5);
+
+    }
+
+    private void displayTowerHealth() {
+        for (Player player : lookAtTower.lookingAtTower.keySet()) {
+            Tower tower = lookAtTower.lookingAtTower.get(player);
+
+            if (!tower.getBlacklistedPlayers().contains(player.getUniqueId()) && !player.hasPermission("defencetowers.seeblockedhealth")) continue;
+
+            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', messagesYaml.getString(MessageDefault.TOWER_HEALTH_MESSAGE.path).replace("%HEALTH%", tower.getHealth() + ""))));
+        }
     }
 
     private void createExampleTower() {
@@ -167,7 +211,8 @@ public class DefenceTowersMain extends JavaPlugin {
             try {
                 towerLocationYaml.save(towerLocationsFile);
                 towerLocationsFile.createNewFile();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
     }
 
@@ -200,7 +245,8 @@ public class DefenceTowersMain extends JavaPlugin {
 
         try {
             towerLocationYaml.save(towerLocationsFile);
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
 
         towerLocationsFile.delete();
     }

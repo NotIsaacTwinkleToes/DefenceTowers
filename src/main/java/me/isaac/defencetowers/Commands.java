@@ -1,17 +1,18 @@
 package me.isaac.defencetowers;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 import me.isaac.defencetowers.tower.Tower;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Commands implements TabExecutor {
 
@@ -55,7 +56,7 @@ public class Commands implements TabExecutor {
 
         return list;
     }
-    
+
     //TODO Command system so that towers can be made and edited in-game.
 
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
@@ -82,7 +83,7 @@ public class Commands implements TabExecutor {
 
                 main.createExampleTowers();
 
-                player.sendMessage(DefenceTowersMain.prefix + "Example towers created!");
+                player.sendMessage(DefenceTowersMain.prefix + " Example towers created!");
 
                 return true;
             case "get":
@@ -94,7 +95,7 @@ public class Commands implements TabExecutor {
                 }
 
                 if (!Tower.exists(towerName)) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Unknown tower name!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Unknown tower name!");
                     return true;
                 }
 
@@ -105,24 +106,23 @@ public class Commands implements TabExecutor {
                 player.getInventory().addItem(tower.getTurret());
 
 
-
                 break;
             case "list":
 
-                player.sendMessage(DefenceTowersMain.prefix + "DefenceTowers list");
+                player.sendMessage(DefenceTowersMain.prefix + " DefenceTowers list");
 
                 for (File towerFile : DefenceTowersMain.towerFolder.listFiles()) {
                     player.sendMessage(towerFile.getName().replace(".yml", ""));
                 }
 
-                player.sendMessage(DefenceTowersMain.prefix + ChatColor.GRAY + "NOTE: Newly created tower files also appear here. It is recommended to restart the server before using those towers!");
+                player.sendMessage(DefenceTowersMain.prefix + ChatColor.GRAY + " NOTE: Newly created tower files also appear here. It is recommended to restart the server before using those towers!");
 
                 break;
             case "reload":
 
                 if (args.length == 1) {
 
-                    player.sendMessage(DefenceTowersMain.prefix + "Reloading all towers..");
+                    player.sendMessage(DefenceTowersMain.prefix + " Reloading all towers..");
 
                     for (File towerFiles : DefenceTowersMain.towerFolder.listFiles()) {
                         main.updateExistingTowers(towerFiles.getName().replace(".yml", ""));
@@ -137,13 +137,13 @@ public class Commands implements TabExecutor {
                 }
 
                 if (!Tower.exists(towerName)) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Unknown tower name!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Unknown tower name!");
                     return true;
                 }
 
                 main.updateExistingTowers(towerName);
 
-                player.sendMessage(DefenceTowersMain.prefix + towerName + " has been reloaded!");
+                player.sendMessage(DefenceTowersMain.prefix + " " + towerName + " has been reloaded!");
 
                 break;
             case "turret":
@@ -155,7 +155,7 @@ public class Commands implements TabExecutor {
                 }
 
                 if (!Tower.exists(towerName)) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Unknown tower name!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Unknown tower name!");
                     return true;
                 }
 
@@ -163,7 +163,7 @@ public class Commands implements TabExecutor {
 
                 if (item.getType() == Material.AIR) item = player.getInventory().getItemInOffHand();
                 if (item.getType() == Material.AIR) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Hold the item you want the turret head to be!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Hold the item you want the turret head to be!");
                     return true;
                 }
 
@@ -171,7 +171,7 @@ public class Commands implements TabExecutor {
 
                 tower.getTowerOptions().setTurret(item);
 
-                player.sendMessage(DefenceTowersMain.prefix + "Tower turret item set!");
+                player.sendMessage(DefenceTowersMain.prefix + " Tower turret item set!");
 
                 break;
 
@@ -183,7 +183,7 @@ public class Commands implements TabExecutor {
                 }
 
                 if (!Tower.exists(towerName)) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Unknown tower name!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Unknown tower name!");
                     return true;
                 }
 
@@ -191,7 +191,7 @@ public class Commands implements TabExecutor {
 
                 if (item.getType() == Material.AIR) item = player.getInventory().getItemInOffHand();
                 if (item.getType() == Material.AIR) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Hold the item you want the turret head to be!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Hold the item you want the turret head to be!");
                     return true;
                 }
 
@@ -199,7 +199,7 @@ public class Commands implements TabExecutor {
 
                 tower.getTowerOptions().setBase(item);
 
-                player.sendMessage(DefenceTowersMain.prefix + "Tower turret item set!");
+                player.sendMessage(DefenceTowersMain.prefix + " Tower turret item set!");
                 break;
             case "ammunition":
                 towerName = "";
@@ -209,7 +209,7 @@ public class Commands implements TabExecutor {
                 }
 
                 if (!Tower.exists(towerName)) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Unknown tower name!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Unknown tower name!");
                     return true;
                 }
 
@@ -217,7 +217,7 @@ public class Commands implements TabExecutor {
 
                 if (item.getType() == Material.AIR) item = player.getInventory().getItemInOffHand();
                 if (item.getType() == Material.AIR) {
-                    player.sendMessage(DefenceTowersMain.prefix + "Hold the item you want the turret head to be!");
+                    player.sendMessage(DefenceTowersMain.prefix + " Hold the item you want the turret head to be!");
                     return true;
                 }
 
@@ -225,10 +225,10 @@ public class Commands implements TabExecutor {
 
                 tower.getTowerOptions().setAmmunitionItem(item);
 
-                player.sendMessage(DefenceTowersMain.prefix + "Tower ammunition item set!");
+                player.sendMessage(DefenceTowersMain.prefix + " Tower ammunition item set!");
                 break;
             default:
-                player.sendMessage(DefenceTowersMain.prefix + "Unknown sub-command: " + args[0]);
+                player.sendMessage(DefenceTowersMain.prefix + " Unknown sub-command: " + args[0]);
                 return true;
         }
 

@@ -1,23 +1,38 @@
 package me.isaac.defencetowers.tower;
 
+import me.isaac.defencetowers.DefenceTowersMain;
+import me.isaac.defencetowers.MessageDefault;
 import me.isaac.defencetowers.StaticUtil;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 public class TowerItems {
 
-    private final ItemStack toggleRadius = StaticUtil.fastItem(Material.ENDER_EYE, ChatColor.WHITE + "Tower Radius", new String[] {ChatColor.GRAY + "Displays the towers radius"}, false);
-    private final ItemStack blacklist = StaticUtil.fastItem(Material.PAPER, ChatColor.WHITE + "Player Blacklist", new String[] {ChatColor.GRAY + "Players not in the blacklist cannot interact with this tower!", ChatColor.DARK_GRAY + "Players the tower will not shoot at:"}, true);
-    private final ItemStack ammunition = StaticUtil.fastItem(Material.ARROW, ChatColor.WHITE + "Ammunition" + ChatColor.GOLD + "0", new String[] {ChatColor.GRAY + "Right Click to switch targeting mode", ChatColor.DARK_GRAY + "Target Mode: " + ChatColor.WHITE + "TargetType", ChatColor.GRAY + "Shift + Click arrows in your inventory to put them in the turret"}, false);
-    private final ItemStack ride = StaticUtil.fastItem(Material.SADDLE, ChatColor.WHITE + "Control Tower", new String[] {}, false);
+    //TODO Make tower repair items.
+
+    private final ItemStack toggleRadius;
+    private final ItemStack blacklist;
+    private final ItemStack ammunition;
+    private final ItemStack ride;
+    DefenceTowersMain main;
+    public TowerItems(DefenceTowersMain main) {
+        this.main = main;
+
+        toggleRadius = StaticUtil.fastItem(Material.ENDER_EYE, main.messagesYaml.getString(MessageDefault.TOWER_RADIUS_NAME.path), new String[]{main.messagesYaml.getString(MessageDefault.TOWER_RADIUS_DESCRIPTION.path)}, false);
+        blacklist = StaticUtil.fastItem(Material.PAPER, main.messagesYaml.getString(MessageDefault.TOWER_BLACKLIST_NAME.path), main.messagesYaml.getStringList(MessageDefault.TOWER_BLACKLIST_DESCRIPTION.path), true);
+        ammunition = StaticUtil.fastItem(Material.ARROW, main.messagesYaml.getString(MessageDefault.TOWER_AMMUNITION_NAME.path), main.messagesYaml.getStringList(MessageDefault.TOWER_AMMUNITION_DESCRIPTION.path), false);
+        ride = StaticUtil.fastItem(Material.SADDLE, main.messagesYaml.getString(MessageDefault.TOWER_RIDE_NAME.path), main.messagesYaml.getStringList(MessageDefault.TOWER_RIDE_DESCRIPTION.path), false);
+
+    }
 
     public ItemStack getToggleRadius() {
         return toggleRadius;
     }
+
     public ItemStack getBlacklist() {
         return blacklist;
     }
+
     public ItemStack getAmmunition() {
         return ammunition;
     }
