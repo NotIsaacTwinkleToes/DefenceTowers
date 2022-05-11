@@ -71,6 +71,8 @@ The size must be within 0 and 2.
 ### Hit Types:
         - BREAK 1.0
         - SPLIT 1.0
+        
+Hit types; BREAK, SPLIT, BOUNCE.
 
 This contains effects that are possible when a projectile hits. Higher number = higher chance for effect.
 
@@ -103,6 +105,7 @@ If true, projectiles won't make sounds.
 ## Tower
 ### Consumption: 1
 How much ammunition is consumed per shot.
+0 for infinite ammo.
 
 ### Delay: 20
 Time in ticks between shots.
@@ -111,10 +114,10 @@ Time in ticks between shots.
 Maximum ammo this type of tower can hold. 0 is infinite.
 
 ### Offset: 0.55
-How far the turret item should be from the base item in-game.
+How far the turret top should be from the base block.
 
 ### Name Offset: 1.85
-How far the name will be from the turret item.
+How far the name will be from the turret top.
 
 ### Turret:
       Turret:
